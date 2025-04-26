@@ -1,0 +1,15 @@
+# Python-generated files
+__pycache__/
+*.py[ocd]
+
+# Virtual environments
+.venv
+venv/
+
+# Private enviroments
+.env
+
+# Test and coverage reports
+.cache/
+coverage/
+*.cover
