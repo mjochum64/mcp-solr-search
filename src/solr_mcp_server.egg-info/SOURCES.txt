@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+src/bare_server.py
+src/minimal_server.py
+src/server.py
+src/my_project/main.py
+src/solr_mcp_server.egg-info/PKG-INFO
+src/solr_mcp_server.egg-info/SOURCES.txt
+src/solr_mcp_server.egg-info/dependency_links.txt
+src/solr_mcp_server.egg-info/requires.txt
+src/solr_mcp_server.egg-info/top_level.txt
+tests/test_integration_server.py
+tests/test_main.py
+tests/test_server.py

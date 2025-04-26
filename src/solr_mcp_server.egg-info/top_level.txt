@@ -1,0 +1,4 @@
+bare_server
+minimal_server
+my_project
+server

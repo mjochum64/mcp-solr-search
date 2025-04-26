@@ -1,3 +1,29 @@
+Metadata-Version: 2.4
+Name: solr_mcp_server
+Version: 0.1.0
+Summary: An MCP Server for Apache Solr document search
+Author-email: Martin Jochum <mjochum64@gmail.com>
+Keywords: mcp,solr,search,apache-solr,document-search
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: httpx>=0.24.1
+Requires-Dist: mcp[cli]>=1.6.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pyjwt>=2.6.0
+Requires-Dist: passlib>=1.7.4
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+
 # MCP-Server for Apache Solr Document Search
 
 This project implements a Model Context Protocol (MCP) server that provides document search capabilities through Apache Solr. It allows Large Language Models to search and retrieve documents from Solr collections using the MCP standard.
@@ -25,7 +51,6 @@ The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/pytho
 - Python 3.11+
 - Docker and Docker Compose (for the integrated Solr environment)
 - `uv` package manager (recommended)
-- MCP 1.6.0+ (see compatibility notes below)
 
 ## Installation
 
@@ -53,27 +78,6 @@ The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/pytho
    cp .env.example .env
    # Edit .env with your Solr connection details
    ```
-
-4. Create and activate a virtual environment (important):
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Linux/macOS
-   # OR
-   .\.venv\Scripts\activate   # On Windows
-   ```
-
-   > **Note**: Always ensure the virtual environment is activated before running the server or client tools. Many connection issues are caused by running commands outside the virtual environment.
-
-## MCP Compatibility Notes
-
-This project is currently developed and tested with MCP 1.6.0, which has some API differences from earlier versions:
-
-- MCP 1.6.0 doesn't support the `app.state` attribute for storing shared state
-- The `lifespan` context manager pattern causes TaskGroup errors in MCP 1.6.0
-- Instead, the project uses global variables for shared resources (such as the Solr client)
-
-If you're using a different MCP version, you may need to adjust the code accordingly. See the TASK.md file under "Discovered During Work" for more details on compatibility issues.
 
 ## Usage
 
@@ -175,144 +179,6 @@ JWT_EXPIRATION_MINUTES=1440  # 24 hours
 # Logging
 LOG_LEVEL=INFO
 ```
-
-## Testing the MCP Server
-
-There are several ways to test and interact with the MCP Solr server:
-
-### 1. Using the MCP Inspector (GUI)
-
-This is the most convenient method for testing and debugging:
-
-```bash
-# Start the server with the inspector
-mcp dev src/server.py
-```
-
-Then open http://127.0.0.1:6274 in your browser to access the MCP Inspector.
-
-#### Executing a search:
-
-1. **Using the Resource**:
-   - Find the resource `solr://search/{query}` in the sidebar
-   - Replace `{query}` with your search term (e.g., `*:*` for all documents)
-   - Click "Execute"
-
-2. **Using the Search Tool**:
-   - Go to the "Tools" section and select the "search" tool
-   - Enter parameters in JSON format:
-   ```json
-   {
-     "query": "*:*",
-     "filter_query": "category:technology",
-     "sort": "id asc",
-     "rows": 5,
-     "start": 0
-   }
-   ```
-   - Click "Execute"
-
-#### Retrieving a document:
-
-1. Go to the "Tools" section and select the "get_document" tool
-2. Enter parameters in JSON format:
-   ```json
-   {
-     "id": "doc1",
-     "fields": ["title", "content", "author"]
-   }
-   ```
-3. Click "Execute"
-
-### 2. Using a Python Client
-
-You can create a simple Python client to test the server:
-
-```python
-import asyncio
-from mcp.client import MCPClient
-
-async def test_solr_search():
-    # Connect to the MCP server
-    async with MCPClient(url="http://localhost:8765") as client:
-        # Get server info to verify connection
-        server_info = await client.get_server_info()
-        print("Connected to MCP server:", server_info.name)
-        
-        # Execute a search
-        search_result = await client.call_tool(
-            "search", 
-            arguments={
-                "query": "*:*",
-                "filter_query": None,
-                "sort": "id asc",
-                "rows": 5,
-                "start": 0
-            }
-        )
-        print("Search results:", search_result)
-        
-        # If documents were found, retrieve the first one
-        if "response" in search_result and search_result["response"]["numFound"] > 0:
-            doc_id = search_result["response"]["docs"][0]["id"]
-            document = await client.call_tool(
-                "get_document",
-                arguments={
-                    "id": doc_id,
-                    "fields": ["title", "content"]
-                }
-            )
-            print(f"Document with ID {doc_id}:", document)
-
-if __name__ == "__main__":
-    asyncio.run(test_solr_search())
-```
-
-Save this as `test_solr_client.py` and run:
-```bash
-python test_solr_client.py
-```
-
-### 3. Using Direct HTTP Requests
-
-You can also test with curl or any HTTP client. Note that the MCP server expects specific request formats:
-
-```bash
-# Testing search tool with curl
-curl -X POST http://localhost:8765/tool/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "*:*", "rows": 5}'
-
-# Retrieving a document with curl
-curl -X POST http://localhost:8765/tool/get_document \
-  -H "Content-Type: application/json" \
-  -d '{"id": "doc1"}'
-
-# Using the resource endpoint
-curl -G http://localhost:8765/resource/solr%3A%2F%2Fsearch%2F%2A%3A%2A \
-  --data-urlencode "query=*:*"
-```
-
-### 4. Troubleshooting Connection Issues
-
-If you can access the MCP Inspector but not connect with other clients:
-
-1. **Check CORS settings**:
-   - If using a web client from a different origin, CORS might be blocking requests
-
-2. **Verify network access**:
-   - Ensure port 8765 is accessible from the client
-
-3. **Check for authentication requirements**:
-   - If authentication is enabled, ensure clients are including the required credentials
-
-4. **Inspect request format**:
-   - MCP expects specific endpoint formats and JSON structures
-
-5. **Use the debug server mode**:
-   ```bash
-   MCP_DEBUG=1 python src/server.py
-   ```
 
 ## Development
 

@@ -39,6 +39,7 @@
   - [x] Document retrieval by ID
 - [x] Add error handling for Solr connection and query issues
 - [x] Write unit tests for Solr client functions
+- [x] Set up Docker-based test environment for Apache Solr
 
 ## 4. Authentication System (if needed)
 
@@ -71,7 +72,7 @@
 - [x] Write comprehensive tests:
   - [x] Expected behavior tests
   - [x] Edge case tests
-  - [ ] Failure scenario tests
+  - [x] Failure scenario tests with real Solr integration
 
 ## 6. Error Handling and Logging
 
@@ -80,7 +81,7 @@
 - [ ] Configure logging system for requests and special events
 - [ ] Add Solr error translation to readable user messages
 - [ ] Implement request tracking and debugging tools
-- [ ] Write tests for error handling scenarios
+- [x] Write tests for error handling scenarios
 
 ## 7. MCP Client Example (Optional)
 
@@ -90,14 +91,15 @@
 
 ## 8. Deployment Preparation
 
-- [ ] Set up MCP CLI installation configuration
+- [x] Set up MCP CLI installation configuration
 - [ ] Create Dockerfile for containerization
-- [ ] Set up Docker Compose configuration
+- [x] Set up Docker Compose configuration for development and testing
 - [x] Document deployment process in README.md
 - [x] Implement environment variable configuration
-- [ ] Add health check capabilities
-- [ ] Test deployment in containerized environment
+- [x] Add health check capabilities
+- [x] Test deployment in containerized environment
 - [ ] Test Claude Desktop integration
+- [x] Test MCP development tools (mcp dev) (26. April 2025)
 
 ## 9. Documentation
 
@@ -107,6 +109,7 @@
   - [x] Usage examples
   - [x] MCP resources and tools documentation
 - [x] Document environment variables in .env.example
+- [x] Create and set up CHANGELOG.md for tracking project changes
 - [ ] Add inline code documentation for all modules and functions
 - [ ] Create example usage scripts
 
@@ -116,3 +119,9 @@
 - [ ] Explore creating a prompts interface for common Solr search templates
 - [ ] Consider implementing MCP contexts for more complex operations (26. April 2025)
 - [ ] Research MCP server monitoring and analytics capabilities (26. April 2025)
+- [ ] Consider implementing schema detection for auto-configuring search fields (26. April 2025)
+- [ ] Explore adding facet support for improved document exploration (26. April 2025)
+- [ ] Address MCP version compatibility issues - FastMCP.run() in MCP 1.6.0 doesn't accept host/port parameters directly (26. April 2025)
+- [ ] Fix MCP 1.6.0 lifespan compatibility - lifespan context manager must yield None or nothing to avoid TaskGroup errors (26. April 2025)
+- [x] Fix MCP 1.6.0 Server TaskGroup error - Using a bare server without lifespan manager resolves the issue (26. April 2025)
+- [x] MCP 1.6.0 doesn't support app.state - Must use global variables instead of app.state to store shared resources (26. April 2025)

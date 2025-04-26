@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+  <!-- Basic Solr Configuration for Testing Environment -->
+  <luceneMatchVersion>9.4.0</luceneMatchVersion>
+
+  <!-- Data Directory Configuration -->
+  <dataDir>${solr.data.dir:}</dataDir>
+
+  <!-- Indexing Configuration -->
+  <directoryFactory name="DirectoryFactory" class="${solr.directoryFactory:solr.NRTCachingDirectoryFactory}"/>
+  <schemaFactory class="ClassicIndexSchemaFactory"/>
+  
+  <!-- Request Handlers -->
+  <requestHandler name="/select" class="solr.SearchHandler">
+    <lst name="defaults">
+      <str name="echoParams">explicit</str>
+      <int name="rows">10</int>
+      <bool name="preferLocalShards">false</bool>
+    </lst>
+  </requestHandler>
+
+  <requestHandler name="/get" class="solr.RealTimeGetHandler">
+    <lst name="defaults">
+      <str name="omitHeader">true</str>
+    </lst>
+  </requestHandler>
+
+  <!-- Update Request Handler -->
+  <requestHandler name="/update" class="solr.UpdateRequestHandler"/>
+  
+  <!-- Admin Interfaces -->
+  <requestHandler name="/admin/" class="solr.admin.AdminHandlers"/>
+
+  <!-- Query Settings -->
+  <query>
+    <maxBooleanClauses>1024</maxBooleanClauses>
+    <queryResultWindowSize>20</queryResultWindowSize>
+    <queryResultMaxDocsCached>200</queryResultMaxDocsCached>
+    <enableLazyFieldLoading>true</enableLazyFieldLoading>
+  </query>
+  
+  <!-- Request Dispatcher -->
+  <requestDispatcher>
+    <requestParsers enableRemoteStreaming="false" multipartUploadLimitInKB="2048000" formdataUploadLimitInKB="2048" addHttpRequestToContext="false"/>
+    <httpCaching never304="false" lastModFrom="openTime" etagSeed="Solr">
+      <cacheControl>max-age=30, public</cacheControl>
+    </httpCaching>
+  </requestDispatcher>
+
+  <!-- Update Settings -->
+  <updateHandler class="solr.DirectUpdateHandler2">
+    <updateLog>
+      <str name="dir">${solr.ulog.dir:}</str>
+    </updateLog>
+    <autoCommit>
+      <maxTime>${solr.autoCommit.maxTime:15000}</maxTime>
+      <openSearcher>false</openSearcher>
+    </autoCommit>
+    <autoSoftCommit>
+      <maxTime>${solr.autoSoftCommit.maxTime:1000}</maxTime>
+    </autoSoftCommit>
+  </updateHandler>
+</config>
