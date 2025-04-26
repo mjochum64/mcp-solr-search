@@ -12,6 +12,10 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 - Comprehensive test suite
 - Docker-based Solr development environment
 
+## Current Version
+
+**Version 1.0.0** - See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
+
 ## What is MCP?
 
 The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/python-sdk) is a standardized way for applications to provide context to Large Language Models (LLMs). This project implements an MCP server that exposes Apache Solr's search capabilities to LLMs, allowing them to:
@@ -72,8 +76,36 @@ This project is currently developed and tested with MCP 1.6.0, which has some AP
 - MCP 1.6.0 doesn't support the `app.state` attribute for storing shared state
 - The `lifespan` context manager pattern causes TaskGroup errors in MCP 1.6.0
 - Instead, the project uses global variables for shared resources (such as the Solr client)
+- MCP 1.6.0 doesn't support direct HTTP access - The FastMCP.run() method only supports 'stdio' or 'sse' transport
 
 If you're using a different MCP version, you may need to adjust the code accordingly. See the TASK.md file under "Discovered During Work" for more details on compatibility issues.
+
+## Direct HTTP Access Workaround
+
+Since MCP 1.6.0 doesn't support direct HTTP access through its standard API, this project includes a FastAPI-based alternative server that mimics the MCP interface but ensures HTTP accessibility:
+
+```bash
+# Run the FastAPI-based server for direct HTTP access
+python run_server.py --mode http
+```
+
+This server provides:
+- Direct HTTP access on port 8765
+- MCP-compatible tool endpoints (e.g., `/tool/search`)
+- MCP-compatible resource endpoints (e.g., `/resource/solr://search/{query}`)
+- Interactive API documentation at http://localhost:8765/docs
+
+Example of direct HTTP access with curl:
+
+```bash
+# Tool endpoint example
+curl -X POST http://localhost:8765/tool/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "*:*", "rows": 5}'
+
+# Resource endpoint example
+curl -G http://localhost:8765/resource/solr%3A%2F%2Fsearch%2F%2A%3A%2A
+```
 
 ## Usage
 
@@ -97,22 +129,34 @@ This will:
 
 ### Running the MCP Server
 
-You can run the MCP server directly:
+You can run the MCP server using the provided wrapper script which supports different modes:
 
 ```bash
-python src/server.py
+# Show help and available options
+python run_server.py --mode help
+
+# Run the MCP protocol server (for LLM integration)
+python run_server.py --mode mcp
+
+# Run the HTTP API server (for direct HTTP access)
+python run_server.py --mode http
+
+# Specify a custom port
+python run_server.py --mode http --port 9000
 ```
 
-Or use the MCP development tools with the included inspector:
+For development with MCP Inspector GUI:
 
 ```bash
-mcp dev src/server.py
+# MCP development environment with inspector GUI
+mcp dev src/server/mcp_server.py
 ```
 
 For Claude Desktop integration:
 
 ```bash
-mcp install src/server.py --name "Solr Search"
+# Install the MCP server for Claude Desktop
+mcp install src/server/mcp_server.py --name "Solr Search"
 ```
 
 ### Using the Solr MCP Server
@@ -186,7 +230,7 @@ This is the most convenient method for testing and debugging:
 
 ```bash
 # Start the server with the inspector
-mcp dev src/server.py
+mcp dev src/server/mcp_server.py
 ```
 
 Then open http://127.0.0.1:6274 in your browser to access the MCP Inspector.
@@ -311,7 +355,7 @@ If you can access the MCP Inspector but not connect with other clients:
 
 5. **Use the debug server mode**:
    ```bash
-   MCP_DEBUG=1 python src/server.py
+   MCP_DEBUG=1 python run_server.py --mode mcp
    ```
 
 ## Development
