@@ -1,28 +1,40 @@
 import asyncio
-from mcp.client import MCPClient
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
-async def test_solr_search():
-    async with MCPClient(url="http://localhost:8765") as client:
-        # Suche durchführen
-        search_result = await client.call_tool(
-            "search", 
-            arguments={
-                "query": "*:*",
-                "rows": 5
-            }
-        )
-        print("Suchergebnisse:", search_result)
-        
-        # Falls Dokumente gefunden wurden, das erste abrufen
-        if "response" in search_result and search_result["response"]["numFound"] > 0:
-            doc_id = search_result["response"]["docs"][0]["id"]
-            document = await client.call_tool(
-                "get_document",
-                arguments={
-                    "id": doc_id
+async def main():
+    server_params = StdioServerParameters(
+        command="mcp",
+        args=["run", "src/server/mcp_server.py"],
+    )
+    
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            
+            # Liste der verfügbaren Tools anzeigen
+            tools = await session.list_tools()
+            print("Verfügbare Tools:", tools)
+            
+            # Eine Suche durchführen
+            result = await session.call_tool("search", {
+                "params": {
+                    "query": "beispiel", 
+                    "rows": 5
                 }
-            )
-            print(f"Dokument mit ID {doc_id}:", document)
+            })
+            print("Suchergebnisse:", result)
+            
+            # Ein Dokument abrufen (vorausgesetzt, die ID existiert)
+            try:
+                doc_result = await session.call_tool("get_document", {
+                    "params": {
+                        "id": "doc1"
+                    }
+                })
+                print("Abgerufenes Dokument:", doc_result)
+            except Exception as e:
+                print(f"Fehler beim Abrufen des Dokuments: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(test_solr_search())
+    asyncio.run(main())
