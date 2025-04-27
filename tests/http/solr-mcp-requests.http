@@ -1,0 +1,45 @@
+# Solr MCP Server HTTP Tests
+@baseUrl = http://localhost:8765
+
+### Server Info abrufen
+GET {{baseUrl}}/
+
+### Basis-Suche mit Resource
+# @name searchResource
+GET {{baseUrl}}/resource/solr%3A%2F%2Fsearch%2F%2A%3A%2A
+
+### Erweiterte Suche mit Tool
+# @name searchTool
+POST {{baseUrl}}/tool/search
+Content-Type: application/json
+
+{
+  "query": "*:*",
+  "filter_query": "category:technology",
+  "sort": "id asc",
+  "rows": 5,
+  "start": 0
+}
+
+### Dokument abrufen
+# @name getDocument
+POST {{baseUrl}}/tool/get_document
+Content-Type: application/json
+
+{
+  "id": "doc1",
+  "fields": ["title", "content", "author", "category"]
+}
+
+### Suche mit Filterung
+# @name searchWithFilter
+POST {{baseUrl}}/tool/search
+Content-Type: application/json
+
+{
+  "query": "machine learning",
+  "filter_query": "date:[2020-01-01T00:00:00Z TO 2025-12-31T23:59:59Z]",
+  "sort": "date desc",
+  "rows": 5,
+  "start": 0
+}

@@ -1,4 +1,4 @@
-bare_server
-minimal_server
-my_project
+fastapi_server
+main
 server
+utils

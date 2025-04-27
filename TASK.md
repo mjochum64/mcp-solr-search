@@ -100,6 +100,7 @@
 - [x] Test deployment in containerized environment
 - [ ] Test Claude Desktop integration
 - [x] Test MCP development tools (mcp dev) (26. April 2025)
+- [x] VSCode Integration mit Launch-Konfigurationen und Tasks (26. April 2025)
 
 ## 9. Documentation
 
@@ -133,3 +134,4 @@
 - [x] Move test utilities to tests/tools directory (26. April 2025)
 - [x] Update README.md with new startup commands and project structure (26. April 2025)
 - [x] Remove obsolete my_project directory from src (26. April 2025)
+- [x] VSCode-Konfiguration mit launch.json und tasks.json für einfaches Debugging und Ausführen (26. April 2025)

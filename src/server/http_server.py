@@ -96,6 +96,28 @@ async def server_info():
     }
 
 
+# Root-Endpunkt hinzufügen, um 404-Fehler bei direktem Zugriff zu vermeiden
+@app.get("/")
+async def root():
+    """Root-Endpunkt, der Basisinformationen zurückgibt und zur Dokumentation weiterleitet."""
+    return {
+        "name": "Solr Search HTTP API",
+        "description": "API für die Suche in Apache Solr-Dokumenten",
+        "version": "1.0.0",
+        "documentation_url": "/docs",
+        "server_info_url": "/server_info",
+        "endpoints": {
+            "tools": [
+                "/tool/search",
+                "/tool/get_document"
+            ],
+            "resources": [
+                "/resource/solr://search/{query}"
+            ]
+        }
+    }
+
+
 # Tool-Endpunkt für die Suche (imitiert den MCP-Tool-Endpunkt)
 @app.post("/tool/search", response_model=Dict[str, Any])
 async def tool_search(params: SearchParams):

@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MCP Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_server.py",
+            "args": ["--mode", "mcp"],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "HTTP Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_server.py",
+            "args": ["--mode", "http"],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MCP Development Server",
+            "type": "python",
+            "request": "launch",
+            "module": "mcp",
+            "args": ["dev", "src/server/mcp_server.py"],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}
