@@ -4,7 +4,7 @@
         {
             "label": "Start MCP Server",
             "type": "shell",
-            "command": "python run_server.py --mode mcp",
+            "command": "source .venv/bin/activate && python run_server.py --mode mcp",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
@@ -18,7 +18,7 @@
         {
             "label": "Start HTTP Server",
             "type": "shell",
-            "command": "python run_server.py --mode http",
+            "command": "source .venv/bin/activate && python run_server.py --mode http",
             "problemMatcher": [],
             "group": "build",
             "presentation": {
@@ -29,7 +29,7 @@
         {
             "label": "Start MCP Dev Server mit Inspector",
             "type": "shell",
-            "command": "mcp dev src/server/mcp_server.py",
+            "command": "source .venv/bin/activate && mcp dev src/server/mcp_server.py",
             "problemMatcher": [],
             "group": "build",
             "presentation": {
@@ -62,7 +62,7 @@
         {
             "label": "Install MCP Server",
             "type": "shell",
-            "command": "mcp install src/server/mcp_server.py --name \"Solr Search\"",
+            "command": "source .venv/bin/activate && mcp install src/server/mcp_server.py --name \"Solr Search\"",
             "problemMatcher": [],
             "group": "build",
             "presentation": {

@@ -65,3 +65,6 @@ source = ["src"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
+
+[tool.hatch.envs.default]
+path = "/home/mjochum/.venvs/global-env"
