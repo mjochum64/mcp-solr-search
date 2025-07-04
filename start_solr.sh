@@ -2,7 +2,7 @@
 
 # Start the Solr container using Docker Compose
 echo "Starting Solr container..."
-docker-compose up -d
+docker compose up -d
 
 # Wait for Solr to fully start
 echo "Waiting for Solr to start..."

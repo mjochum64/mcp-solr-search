@@ -1,6 +1,6 @@
 services:
   solr:
-    image: solr:9.4
+    image: solr:latest
     container_name: mcp_solr_server
     ports:
       - "8983:8983"
