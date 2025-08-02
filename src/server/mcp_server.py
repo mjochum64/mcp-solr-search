@@ -49,16 +49,37 @@ SOLR_USERNAME = os.getenv("SOLR_USERNAME", "")
 SOLR_PASSWORD = os.getenv("SOLR_PASSWORD", "")
 
 
-# MCP-Server ohne Lifespan-Kontext erstellen (für MCP 1.6.0 Kompatibilität)
-app = FastMCP(MCP_SERVER_NAME)
+# Lifespan Context Manager für proper state management
+async def lifespan():
+    """Initialize and cleanup resources for the MCP server."""
+    # Initialize Solr client during startup
+    global solr_client
+    solr_client = SolrClient(
+        base_url=SOLR_BASE_URL,
+        collection=SOLR_COLLECTION,
+        username=SOLR_USERNAME,
+        password=SOLR_PASSWORD
+    )
+    logger.info("Solr client initialized")
+    
+    # Test connection
+    await test_solr_connection()
+    
+    yield  # Server runs here
+    
+    # Cleanup on shutdown
+    logger.info("Shutting down MCP server")
 
-# Solr-Client als globale Variable initialisieren (für MCP 1.6.0 Kompatibilität)
+# Initialize Solr client immediately for backward compatibility with tests
 solr_client = SolrClient(
     base_url=SOLR_BASE_URL,
     collection=SOLR_COLLECTION,
     username=SOLR_USERNAME,
     password=SOLR_PASSWORD
 )
+
+# MCP-Server with modern lifespan management
+app = FastMCP(MCP_SERVER_NAME, lifespan=lifespan)
 
 
 @app.resource("solr://search/{query}")
@@ -175,16 +196,22 @@ if __name__ == "__main__":
     
     import asyncio
     
-    # Teste die Solr-Verbindung vor dem Start
-    asyncio.run(test_solr_connection())
+    # Solr-Verbindung wird im Lifespan-Kontext getestet
     
     try:
-        # Server starten (nutzt MCP FastMCP.run() ohne Parameter für MCP 1.6.0 Kompatibilität)
+        # Server starten mit modernem FastMCP
         logger.info(f"Starte MCP-Server '{MCP_SERVER_NAME}' auf Port {MCP_SERVER_PORT}...")
         print(f"MCP-Server wird gestartet, nutze 'mcp dev {__file__}' für die Entwicklungsumgebung")
-        print("Server ist als MCP-Protokoll verfügbar, aber nicht direkt über HTTP erreichbar")
-        print("Für direkten HTTP-Zugriff bitte src/server/http_server.py verwenden")
-        app.run()
+        print("Server unterstützt sowohl MCP-Protokoll als auch HTTP-Transport")
+        # Test available transports
+        if len(sys.argv) > 1 and sys.argv[1] == "--http":
+            print("Starting server with Streamable HTTP transport...")
+            app.run(transport="streamable-http")
+        elif len(sys.argv) > 1 and sys.argv[1] == "--sse":
+            print("Starting server with SSE transport...")
+            app.run(transport="sse")
+        else:
+            app.run(transport="stdio")
     except Exception as e:
         logger.error(f"Fehler beim Starten des Servers: {e}")
         logger.error(traceback.format_exc())

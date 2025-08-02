@@ -7,14 +7,14 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 
-import httpx
-from mcp.server.fastmcp import FastMCP
-from server.mcp_server import search_solr, search, get_document
-from server.solr_client import SolrClient
-
 # Add the src directory to the path so we can import from it
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+
+import httpx
+from mcp.server.fastmcp import FastMCP
+from src.server.mcp_server import search_solr, search, get_document
+from src.server.solr_client import SolrClient
 
 
 @pytest.fixture
