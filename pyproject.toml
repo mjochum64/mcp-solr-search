@@ -45,6 +45,10 @@ target-version = ["py311"]
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "--strict-markers --tb=short"
+markers = [
+    "asyncio: mark test as asyncio to run with pytest-asyncio",
+    "integration: mark test as integration test"
+]
 
 [tool.flake8]
 max-line-length = 88

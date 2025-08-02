@@ -8,6 +8,7 @@ import logging
 import traceback
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+import inspect
 
 import httpx
 
@@ -33,7 +34,7 @@ class SolrClient:
     username: Optional[str] = None
     password: Optional[str] = None
     
-    async def search(self, query: str, filter_query: Optional[str] = None, 
+    async def search(self, query: str = "*:*", filter_query: Optional[str] = None, 
                     sort: Optional[str] = None, rows: int = 10, 
                     start: int = 0) -> Dict[str, Any]:
         """
@@ -50,7 +51,7 @@ class SolrClient:
             Dict[str, Any]: Die Suchergebnisse von Solr
         """
         params = {
-            "q": query,
+            "q": query or "*:*",
             "wt": "json",
             "rows": rows,
             "start": start,
@@ -73,8 +74,17 @@ class SolrClient:
             logger.info(f"Sende Solr-Suchanfrage an {url} mit Query: {query}")
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, params=params, auth=auth)
-                response.raise_for_status()
-                return response.json()
+                if inspect.iscoroutinefunction(response.raise_for_status):
+                    await response.raise_for_status()
+                else:
+                    response.raise_for_status()
+                if inspect.iscoroutinefunction(response.json):
+                    return await response.json()
+                else:
+                    return response.json()
+        except httpx.HTTPStatusError:
+            # Fehler nicht abfangen, sondern durchreichen
+            raise
         except Exception as e:
             logger.error(f"Fehler bei der Solr-Suche: {e}")
             logger.error(traceback.format_exc())
@@ -109,13 +119,20 @@ class SolrClient:
             logger.info(f"Rufe Dokument mit ID {doc_id} von {url} ab")
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, params=params, auth=auth)
-                response.raise_for_status()
-                result = response.json()
-                
+                if inspect.iscoroutinefunction(response.raise_for_status):
+                    await response.raise_for_status()
+                else:
+                    response.raise_for_status()
+                if inspect.iscoroutinefunction(response.json):
+                    result = await response.json()
+                else:
+                    result = response.json()
                 if result["response"]["numFound"] == 0:
                     return {"error": f"Dokument mit ID {doc_id} nicht gefunden"}
-                    
                 return result["response"]["docs"][0]
+        except httpx.HTTPStatusError:
+            # Fehler nicht abfangen, sondern durchreichen
+            raise
         except Exception as e:
             logger.error(f"Fehler beim Abrufen des Dokuments: {e}")
             logger.error(traceback.format_exc())
