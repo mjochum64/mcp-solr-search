@@ -2,43 +2,31 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Commands
+## Project Overview
+
+This is an MCP (Model Context Protocol) Server for Apache Solr Document Search that bridges LLMs with Solr search capabilities. The project implements both MCP protocol support and HTTP server workarounds due to MCP 1.6.0 limitations, with plans to modernize to MCP 2025-03-26.
+
+## Essential Commands
 
 ### Environment Setup
 ```bash
-# Install dependencies with uv (recommended)
-uv install
+# Install dependencies (virtual environment must be activated)
+uv install                # Preferred
+pip install -e .         # Alternative
 
-# Or with pip
-pip install -e .
-
-# Create and activate virtual environment (always required)
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .\.venv\Scripts\activate   # Windows
+# Start Solr development environment
+./start_solr.sh          # Includes sample data loading
 ```
 
-### Running the Solr Environment
+### Development Servers
 ```bash
-# Start Solr with sample data
-./start_solr.sh
-
-# Access Solr Admin UI
-# http://localhost:8983/solr/
-```
-
-### Running the MCP Server
-```bash
-# Show available modes
-python run_server.py --mode help
-
-# Run MCP protocol server (for LLM integration)
+# MCP server for LLM integration
 python run_server.py --mode mcp
 
-# Run HTTP API server (for direct testing)
+# HTTP server for direct access (MCP 1.6.0 workaround)
 python run_server.py --mode http
 
-# Development with MCP Inspector GUI
+# MCP development server with inspector GUI
 mcp dev src/server/mcp_server.py
 ```
 
@@ -47,56 +35,69 @@ mcp dev src/server/mcp_server.py
 # Run all tests
 pytest
 
-# Run unit tests only
+# Unit tests only (with mocked Solr)
 pytest tests/test_server.py
 
-# Run integration tests (requires running Solr)
+# Integration tests (requires running Solr)
 pytest tests/test_integration_server.py -m integration
 
-# Run with coverage
+# Run specific test
+pytest tests/test_server.py::test_search_solr_resource -v
+
+# Coverage reporting
 pytest --cov=src
 ```
 
 ### Code Quality
 ```bash
-# Format code
-black .
-
-# Lint code
-flake8
+# Format and lint (required before commits)
+black src/ tests/ && flake8 src/ tests/
 ```
 
-## Architecture Overview
-
-This is an MCP (Model Context Protocol) server that provides Apache Solr document search capabilities to LLMs. The key architectural components are:
-
-### Core Components
-- **MCP Server** (`src/server/mcp_server.py`): Main MCP protocol implementation using FastMCP
-- **HTTP Server** (`src/server/http_server.py`): Alternative HTTP API for direct access (MCP 1.6.0 workaround)
-- **Solr Client** (`src/server/solr_client.py`): Async HTTP client for Solr communication
-- **Models** (`src/server/models.py`): Pydantic models for request/response validation
-
-### MCP 1.6.0 Compatibility Notes
-- Uses global variables instead of `app.state` (not supported in MCP 1.6.0)
-- Avoids `lifespan` context manager (causes TaskGroup errors)
-- HTTP access requires separate FastAPI server (`http_server.py`)
+## High-Level Architecture
 
 ### Dual Server Architecture
-The project provides two server modes:
-1. **MCP Protocol Mode**: Standard MCP server for LLM integration via `run_server.py --mode mcp`
-2. **HTTP API Mode**: Direct HTTP access via `run_server.py --mode http` (port 8765)
+The project implements two parallel server architectures:
 
-### MCP Interface
-- **Resource**: `solr://search/{query}` - Basic search functionality
-- **Tool**: `search` - Advanced search with filtering, sorting, and pagination
-- **Tool**: `get_document` - Retrieve specific documents by ID
+1. **MCP Server** (`src/server/mcp_server.py`): Standards-compliant MCP protocol server for LLM integration
+2. **HTTP Server** (`src/server/http_server.py`): FastAPI-based server providing HTTP access to MCP functionality
 
-### Development Environment
-- Uses Docker Compose with Solr 9.4+ container
-- Includes sample documents collection named "documents"
-- Configuration via `.env` file (copy from `.env.example`)
+Both servers share the same core components but expose different interfaces due to MCP 1.6.0 limitations.
+
+### Core Components
+
+**SolrClient** (`src/server/solr_client.py`): Async HTTP client managing all Solr communication with error handling and connection management.
+
+**Data Models** (`src/server/models.py`): Pydantic models providing type safety for search parameters, document retrieval, and error responses.
+
+**Entry Point** (`src/main.py`): CLI argument parsing that routes to appropriate server mode, with `run_server.py` as convenience wrapper.
+
+### MCP 1.6.0 Compatibility Workarounds
+
+- **Global Variables**: Uses global `solr_client` instead of `app.state` (not supported in MCP 1.6.0)
+- **No Lifespan Manager**: Avoids lifespan context manager due to TaskGroup errors
+- **HTTP Fallback**: FastAPI server provides direct HTTP access when MCP transport fails
+
+### Resource and Tool Patterns
+
+**MCP Resources**: `solr://search/{query}` for simple search interface
+**MCP Tools**: 
+- `search`: Advanced search with filtering, sorting, pagination
+- `get_document`: Document retrieval by ID with field selection
+
+Both implement identical business logic but different protocol interfaces.
 
 ### Testing Strategy
-- Unit tests with mocked Solr responses (`test_server.py`)
-- Integration tests with real Solr instance (`test_integration_server.py`)
-- MCP Inspector GUI for interactive testing (`mcp dev`)
+
+**Unit Tests** (`tests/test_server.py`): Mock Solr responses to test logic without external dependencies
+**Integration Tests** (`tests/test_integration_server.py`): Real Solr container tests marked with `@pytest.mark.integration`
+
+Integration tests automatically skip when Solr is unavailable, making them safe for CI/CD.
+
+## Important Context7 Usage
+
+Always use Context7 MCP Server for library documentation (start with 5000 tokens, increase to 20000 if needed, limit to 3 attempts per documentation search).
+
+## Project Management
+
+Check `TASK.md` before starting work and update it when completing tasks. Follow the existing modular structure in `src/server/` rather than the legacy monolithic files.
