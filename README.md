@@ -358,6 +358,23 @@ If you can access the MCP Inspector but not connect with other clients:
    MCP_DEBUG=1 python run_server.py --mode mcp
    ```
 
+## Integration in Tool-Launcher oder Service-Definitionen
+
+Um den MCP-Server in externe Tools (z.B. Claude Desktop, VSCode Dev Containers, eigene Tool-Runner) einzubinden, verwende folgende Konfiguration:
+
+```json
+"solr-search": {
+  "command": "/bin/bash",
+  "args": [
+    "-c",
+    "uv run --with mcp[cli] mcp run ${HOME}/projekte/mcp-solr-search/src/server/mcp_server.py"
+  ]
+}
+```
+
+- Passe den Pfad ggf. an dein System an.
+- Das Kommando sorgt dafür, dass alle Abhängigkeiten und das MCP-CLI im Kontext verfügbar sind und der Server im MCP-Protokoll-Modus läuft.
+
 ## Development
 
 ### Running Tests
