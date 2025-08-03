@@ -48,7 +48,10 @@ class MockContext:
 @pytest.fixture
 def integration_context(solr_client):
     """Create a mock context with real Solr client for integration testing."""
-    request_context = MockRequestContext({"solr_client": solr_client})
+    class LifespanContext:
+        def __init__(self, solr_client):
+            self.solr_client = solr_client
+    request_context = MockRequestContext(LifespanContext(solr_client))
     return MockContext(request_context)
 
 
@@ -65,7 +68,7 @@ async def test_search_solr_integration(integration_context):
         pytest.skip("Solr server not available")
 
     # Test a simple search (jetzt mit *:*)
-    result = await search_solr("*:*")
+    result = await search_solr(integration_context, "*:*")  # ctx, query order
     parsed_result = json.loads(result)
     
     # Verify result structure
@@ -95,7 +98,7 @@ async def test_search_tool_integration(integration_context):
         "rows": 3,
         "start": 0
     }
-    result = await search(params)
+    result = await search(integration_context, params)  # ctx, params order
     
     # Verify result structure
     assert "responseHeader" in result
@@ -124,10 +127,10 @@ async def test_get_document_tool_integration(integration_context):
         "fields": ["title", "author"]
     }
     
-    result = await get_document({
+    result = await get_document(integration_context, {
         "id": "doc1",
         "fields": ["title", "author"]
-    })
+    })  # ctx, params order
     if "id" not in result:
         print(f"WARN: get_document lieferte kein id-Feld: {result}")
         pytest.skip(f"Kein id-Feld im Ergebnis: {result}")

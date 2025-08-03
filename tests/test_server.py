@@ -41,15 +41,15 @@ def mock_solr_client():
 def mock_context(mock_solr_client):
     """Create a mock context with the solr client"""
     context = MagicMock()
-    context.request_context.lifespan_context = {"solr_client": mock_solr_client}
+    context.request_context.lifespan_context.solr_client = mock_solr_client
     return context
 
 
 @pytest.mark.asyncio
-async def test_search_solr_resource(mock_solr_client):
+async def test_search_solr_resource(mock_context):
     """Test the solr://search/{query} resource"""
     # Call the resource function
-    result = await search_solr("*:*")
+    result = await search_solr(mock_context, "*:*")  # ctx, query order
     
     # Verify solr client was called with the right parameters
     # Verify the result is properly formatted
@@ -59,7 +59,7 @@ async def test_search_solr_resource(mock_solr_client):
 
 
 @pytest.mark.asyncio
-async def test_search_tool(mock_solr_client):
+async def test_search_tool(mock_context):
     """Test the search tool with parameters"""
     # Prepare parameters
     params = {
@@ -67,7 +67,7 @@ async def test_search_tool(mock_solr_client):
     }
     
     # Call the tool function
-    result = await search(params)
+    result = await search(mock_context, params)  # ctx, params order
     
     # Verify solr client was called with the right parameters
     # Check the result
@@ -78,7 +78,7 @@ async def test_search_tool(mock_solr_client):
 
 
 @pytest.mark.asyncio
-async def test_get_document_tool(mock_solr_client):
+async def test_get_document_tool(mock_context):
     """Test the get_document tool"""
     # Prepare parameters
     params = {
@@ -87,7 +87,7 @@ async def test_get_document_tool(mock_solr_client):
     }
     
     # Call the tool function
-    result = await get_document(params)
+    result = await get_document(mock_context, params)  # ctx, params order
     if "id" not in result:
         print(f"WARN: get_document lieferte kein id-Feld: {result}")
         pytest.skip(f"Kein id-Feld im Ergebnis: {result}")
