@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an MCP (Model Context Protocol) Server for Apache Solr Document Search that bridges LLMs with Solr search capabilities. The project implements both MCP protocol support and HTTP server workarounds due to MCP 1.6.0 limitations, with plans to modernize to MCP 2025-03-26.
+This is an MCP (Model Context Protocol) Server for Apache Solr Document Search that bridges LLMs with Solr search capabilities. The project has been fully modernized to **MCP 1.21.0** (2025-03-26 specification), featuring:
+- Modern lifespan context management
+- Streamable HTTP transport (native support)
+- Tool annotations for enhanced client integration
+- Context-based state management
 
 ## Essential Commands
 
@@ -56,13 +60,16 @@ black src/ tests/ && flake8 src/ tests/
 
 ## High-Level Architecture
 
-### Dual Server Architecture
-The project implements two parallel server architectures:
+### Modern MCP Architecture
+The project uses a unified MCP server architecture with native transport support:
 
-1. **MCP Server** (`src/server/mcp_server.py`): Standards-compliant MCP protocol server for LLM integration
-2. **HTTP Server** (`src/server/http_server.py`): FastAPI-based server providing HTTP access to MCP functionality
+**MCP Server** (`src/server/mcp_server.py`): Modern FastMCP-based server with:
+- **Lifespan Context Manager**: Type-safe dependency injection with `AppContext` dataclass
+- **Multiple Transports**: Native support for stdio, SSE, and Streamable HTTP
+- **Tool Annotations**: Enhanced metadata with `readOnlyHint` for better client UX
+- **Context-Based Logging**: Direct client communication via `ctx.info/debug/warning/error`
 
-Both servers share the same core components but expose different interfaces due to MCP 1.6.0 limitations.
+**HTTP Server** (`src/server/http_server.py`): Legacy FastAPI-based workaround (no longer required with MCP 1.21.0)
 
 ### Core Components
 
@@ -72,11 +79,12 @@ Both servers share the same core components but expose different interfaces due 
 
 **Entry Point** (`src/main.py`): CLI argument parsing that routes to appropriate server mode, with `run_server.py` as convenience wrapper.
 
-### MCP 1.6.0 Compatibility Workarounds
+### MCP 1.21.0 Modern Patterns
 
-- **Global Variables**: Uses global `solr_client` instead of `app.state` (not supported in MCP 1.6.0)
-- **No Lifespan Manager**: Avoids lifespan context manager due to TaskGroup errors
-- **HTTP Fallback**: FastAPI server provides direct HTTP access when MCP transport fails
+- **Lifespan Context**: Uses `@asynccontextmanager` pattern with `ctx.request_context.lifespan_context`
+- **Tool Decorators**: `@app.tool()` and `@app.resource()` with metadata annotations
+- **Streamable HTTP**: Native HTTP transport without external workarounds
+- **Type Safety**: `AppContext` dataclass for dependency injection
 
 ### Resource and Tool Patterns
 

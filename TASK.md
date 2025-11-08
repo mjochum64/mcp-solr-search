@@ -1,21 +1,29 @@
 # Project Tasks: MCP-Server for Apache Solr (Focus: Document Search)
 
-## Current Status & Modernization Plan (Updated: 2. August 2025)
+## Current Status & Modernization Plan (Updated: 8. November 2025)
 
-**MCP Version Migration**: Currently on MCP 1.6.0 → Target: MCP 2025-03-26
+**MCP Version**: Successfully upgraded to **MCP 1.21.0** ✅
 
-### Modernization Tasks (Priority: High)
-- [ ] Upgrade to MCP 2025-03-26 specification
-- [ ] Remove MCP 1.6.0 compatibility workarounds:
-  - [ ] Replace global variables with proper app.state usage
-  - [ ] Implement lifespan context manager without TaskGroup errors
-  - [ ] Add direct HTTP access support (may be native in new version)
-- [ ] Test new MCP features:
-  - [ ] Enhanced tracing capabilities
-  - [ ] Improved tool listing functionality
-  - [ ] Streamable HTTP support
-- [ ] Update documentation for new MCP version
-- [ ] Verify Claude Desktop integration with modern MCP
+### Completed Modernization Tasks (November 2025)
+- [x] Upgraded to MCP 1.21.0 with 2025-03-26 specification support
+- [x] Removed MCP 1.6.0 compatibility workarounds:
+  - [x] Replaced global variables with proper lifespan context pattern
+  - [x] Implemented modern lifespan context manager with AppContext dataclass
+  - [x] Added Streamable HTTP transport support (native in MCP 1.21.0)
+- [x] Implemented new MCP features:
+  - [x] Tool Annotations (readOnlyHint) for better client integration
+  - [x] Modern FastMCP decorator pattern (@app.tool, @app.resource)
+  - [x] Context-based state management (ctx.request_context.lifespan_context)
+  - [x] Enhanced logging with ctx.info/debug/warning/error
+- [x] Updated all unit tests for new patterns
+- [x] Verified Streamable HTTP transport functionality
+
+### Next Steps
+- [ ] Update README.md with new MCP version and features
+- [ ] Update CLAUDE.md with modern patterns
+- [ ] Test Claude Desktop integration with MCP 1.21.0
+- [ ] Consider implementing OAuth 2.1 authorization (new in 2025-03-26)
+- [ ] Evaluate JSON-RPC batching support
 
 ## 1. Project Setup (Completed: 26. April 2025)
 

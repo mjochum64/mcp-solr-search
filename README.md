@@ -14,7 +14,7 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 
 ## Current Version
 
-**Version 1.0.0** - See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
+**Version 1.1.0** - Modernized with MCP 1.21.0 (2025-03-26 specification). See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
 
 ## What is MCP?
 
@@ -29,7 +29,7 @@ The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/pytho
 - Python 3.11+
 - Docker and Docker Compose (for the integrated Solr environment)
 - `uv` package manager (recommended)
-- MCP 1.6.0+ (see compatibility notes below)
+- MCP 1.21.0+ (fully compatible with 2025-03-26 specification)
 
 ## Installation
 
@@ -69,43 +69,45 @@ The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/pytho
 
    > **Note**: Always ensure the virtual environment is activated before running the server or client tools. Many connection issues are caused by running commands outside the virtual environment.
 
-## MCP Compatibility Notes
+## MCP 1.21.0 Modern Features
 
-This project is currently developed and tested with MCP 1.6.0, which has some API differences from earlier versions:
+This project uses the latest MCP 1.21.0 SDK with full support for the 2025-03-26 specification:
 
-- MCP 1.6.0 doesn't support the `app.state` attribute for storing shared state
-- The `lifespan` context manager pattern causes TaskGroup errors in MCP 1.6.0
-- Instead, the project uses global variables for shared resources (such as the Solr client)
-- MCP 1.6.0 doesn't support direct HTTP access - The FastMCP.run() method only supports 'stdio' or 'sse' transport
+✅ **Lifespan Context Manager**: Type-safe dependency injection with `AppContext` dataclass
+✅ **Streamable HTTP Transport**: Native HTTP support without external workarounds
+✅ **Tool Annotations**: Enhanced metadata (`readOnlyHint`, `title`, `description`)
+✅ **Context-Based Logging**: Direct client communication via `ctx.info/debug/warning/error`
+✅ **Modern Decorators**: `@app.tool()` and `@app.resource()` patterns
 
-If you're using a different MCP version, you may need to adjust the code accordingly. See the TASK.md file under "Discovered During Work" for more details on compatibility issues.
+### Migration from MCP 1.6.0
 
-## Direct HTTP Access Workaround
+The project has been fully modernized from MCP 1.6.0. Key changes:
+- ❌ Global variables → ✅ Lifespan context (`ctx.request_context.lifespan_context`)
+- ❌ TaskGroup errors → ✅ Stable `@asynccontextmanager` pattern
+- ❌ FastAPI HTTP workaround → ✅ Native Streamable HTTP transport
 
-Since MCP 1.6.0 doesn't support direct HTTP access through its standard API, this project includes a FastAPI-based alternative server that mimics the MCP interface but ensures HTTP accessibility:
+## Native HTTP Support (Streamable HTTP)
+
+MCP 1.21.0 includes native **Streamable HTTP transport** support. Start the server with HTTP transport:
 
 ```bash
-# Run the FastAPI-based server for direct HTTP access
+# Run with native Streamable HTTP transport
+python src/server/mcp_server.py --http
+# Or use the convenience wrapper
 python run_server.py --mode http
 ```
 
-This server provides:
-- Direct HTTP access on port 8765
-- MCP-compatible tool endpoints (e.g., `/tool/search`)
-- MCP-compatible resource endpoints (e.g., `/resource/solr://search/{query}`)
-- Interactive API documentation at http://localhost:8765/docs
+The server will be available at `http://127.0.0.1:8000` with full MCP protocol support over HTTP.
 
-Example of direct HTTP access with curl:
+### Legacy HTTP Server
+
+The FastAPI-based HTTP server (`src/server/http_server.py`) is still available for backwards compatibility:
 
 ```bash
-# Tool endpoint example
-curl -X POST http://localhost:8765/tool/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "*:*", "rows": 5}'
-
-# Resource endpoint example
-curl -G http://localhost:8765/resource/solr%3A%2F%2Fsearch%2F%2A%3A%2A
+python run_server.py --mode http-legacy
 ```
+
+**Note**: The legacy HTTP server is no longer required with MCP 1.21.0 and may be deprecated in future versions. Use native Streamable HTTP transport for new integrations.
 
 ## Usage
 
