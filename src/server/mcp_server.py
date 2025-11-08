@@ -120,7 +120,7 @@ async def search_solr(ctx: Context, query: str) -> str:
     annotations={
         "title": "Search Solr Documents",
         "readOnlyHint": True,
-        "description": "Advanced search with filtering, sorting, and pagination",
+        "description": "Advanced search with filtering, sorting, pagination, and faceting",
     }
 )
 async def search(
@@ -129,13 +129,14 @@ async def search(
     sort: Optional[str] = None,
     rows: int = 10,
     start: int = 0,
+    facet_fields: Optional[List[str]] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
     """
     Tool für erweiterte Dokumentensuche.
 
     Dieses Tool bietet eine erweiterte Suchfunktionalität mit Filtern,
-    Sortierung und Paginierung für Solr-Dokumente.
+    Sortierung, Paginierung und Faceted Search für Solr-Dokumente.
 
     Args:
         query (str): Solr query string (e.g., "*:*" for all documents)
@@ -143,17 +144,20 @@ async def search(
         sort (Optional[str]): Sort order (e.g., "date desc")
         rows (int): Number of results to return (default: 10)
         start (int): Offset for pagination (default: 0)
+        facet_fields (Optional[List[str]]): Fields to facet on (e.g., ["category", "author"])
         ctx (Context): MCP context with access to lifespan context
 
     Returns:
-        Dict[str, Any]: Suchergebnisse oder Fehlermeldung
+        Dict[str, Any]: Suchergebnisse (inkl. facet_counts wenn facet_fields angegeben) oder Fehlermeldung
     """
     try:
-        await ctx.info(f"Verarbeite search-Tool-Anfrage: {query}")
+        facet_info = f" mit Facets: {facet_fields}" if facet_fields else ""
+        await ctx.info(f"Verarbeite search-Tool-Anfrage: {query}{facet_info}")
 
         solr_client = ctx.request_context.lifespan_context.solr_client
         results = await solr_client.search(
-            query=query, filter_query=filter_query, sort=sort, rows=rows, start=start
+            query=query, filter_query=filter_query, sort=sort, rows=rows, start=start,
+            facet_fields=facet_fields
         )
 
         return results

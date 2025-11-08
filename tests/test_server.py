@@ -175,3 +175,104 @@ async def test_solr_client_get_document():
         assert result["id"] == "doc1"
         assert result["title"] == "Test Document"
         assert "content" in result
+
+
+@pytest.mark.asyncio
+async def test_search_tool_with_facets(mock_context):
+    """Test the search tool with facet_fields parameter"""
+    # Setup mock to return facet counts
+    faceted_result = {
+        "responseHeader": {"status": 0},
+        "response": {
+            "numFound": 10,
+            "start": 0,
+            "docs": [{"id": "doc1", "title": ["Test Doc"], "category": "programming"}]
+        },
+        "facet_counts": {
+            "facet_fields": {
+                "category": ["programming", 3, "technology", 3, "database", 1],
+                "author": ["John Smith", 2, "Jane Doe", 1]
+            }
+        }
+    }
+    mock_context.request_context.lifespan_context.solr_client.search.return_value = faceted_result
+
+    # Call the tool with facet_fields
+    result = await search(
+        query="*:*",
+        filter_query=None,
+        sort=None,
+        rows=10,
+        start=0,
+        facet_fields=["category", "author"],
+        ctx=mock_context
+    )
+
+    # Verify facet_counts are in the result
+    assert "facet_counts" in result
+    assert "facet_fields" in result["facet_counts"]
+    assert "category" in result["facet_counts"]["facet_fields"]
+    assert "author" in result["facet_counts"]["facet_fields"]
+
+    # Verify category facets
+    category_facets = result["facet_counts"]["facet_fields"]["category"]
+    assert "programming" in category_facets
+    assert category_facets[category_facets.index("programming") + 1] == 3
+
+    # Verify ctx.info was called
+    assert mock_context.info.called
+
+
+@pytest.mark.asyncio
+async def test_solr_client_search_with_facets():
+    """Test SolrClient search method with facet_fields"""
+    mock_response = AsyncMock()
+    mock_response.raise_for_status = AsyncMock()
+    mock_response.json = AsyncMock(return_value={
+        "responseHeader": {"status": 0},
+        "response": {
+            "numFound": 10,
+            "start": 0,
+            "docs": [
+                {"id": "doc1", "title": "First Document", "category": "technology"},
+                {"id": "doc2", "title": "Second Document", "category": "programming"}
+            ]
+        },
+        "facet_counts": {
+            "facet_fields": {
+                "category": ["programming", 3, "technology", 3, "database", 1, "devops", 1]
+            }
+        }
+    })
+
+    async def get(*args, **kwargs):
+        return mock_response
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value.get = get
+
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        client = SolrClient(
+            base_url="http://example.com/solr",
+            collection="test_collection"
+        )
+        result = await client.search(
+            query="*:*",
+            facet_fields=["category"]
+        )
+
+        # Verify response structure
+        assert result["response"]["numFound"] == 10
+        assert len(result["response"]["docs"]) == 2
+
+        # Verify facet_counts are present
+        assert "facet_counts" in result
+        assert "facet_fields" in result["facet_counts"]
+        assert "category" in result["facet_counts"]["facet_fields"]
+
+        # Verify facet values
+        category_facets = result["facet_counts"]["facet_fields"]["category"]
+        assert "programming" in category_facets
+        assert "technology" in category_facets
+        assert category_facets[category_facets.index("programming") + 1] == 3
+        assert category_facets[category_facets.index("technology") + 1] == 3

@@ -34,21 +34,22 @@ class SolrClient:
     username: Optional[str] = None
     password: Optional[str] = None
     
-    async def search(self, query: str = "*:*", filter_query: Optional[str] = None, 
-                    sort: Optional[str] = None, rows: int = 10, 
-                    start: int = 0) -> Dict[str, Any]:
+    async def search(self, query: str = "*:*", filter_query: Optional[str] = None,
+                    sort: Optional[str] = None, rows: int = 10,
+                    start: int = 0, facet_fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Führt eine Suchanfrage an Solr aus.
-        
+
         Args:
             query (str): Die Suchanfrage (q-Parameter)
             filter_query (Optional[str]): Optionale Filterabfrage (fq-Parameter)
             sort (Optional[str]): Optionale Sortierparameter (z.B. "id asc")
             rows (int): Anzahl der zurückgegebenen Dokumente (Standard: 10)
             start (int): Offset für Paginierung (Standard: 0)
-            
+            facet_fields (Optional[List[str]]): Liste von Feldern für Faceted Search
+
         Returns:
-            Dict[str, Any]: Die Suchergebnisse von Solr
+            Dict[str, Any]: Die Suchergebnisse von Solr (inkl. facet_counts wenn facet_fields angegeben)
         """
         params = {
             "q": query or "*:*",
@@ -56,13 +57,19 @@ class SolrClient:
             "rows": rows,
             "start": start,
         }
-        
+
         # Füge optionale Parameter hinzu, wenn sie vorhanden sind
         if filter_query:
             params["fq"] = filter_query
-        
+
         if sort:
             params["sort"] = sort
+
+        # Füge Faceting-Parameter hinzu, wenn facet_fields angegeben ist
+        if facet_fields:
+            params["facet"] = "true"
+            params["facet.field"] = facet_fields
+            params["facet.mincount"] = 1  # Nur Werte mit mindestens 1 Dokument
             
         auth = None
         if self.username and self.password:
