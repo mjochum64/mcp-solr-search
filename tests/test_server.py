@@ -7,14 +7,14 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 
-import httpx
-from mcp.server.fastmcp import FastMCP
-from server.mcp_server import search_solr, search, get_document
-from server.solr_client import SolrClient
-
 # Add the src directory to the path so we can import from it
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+
+import httpx
+from mcp.server.fastmcp import FastMCP
+from src.server.mcp_server import search_solr, search, get_document
+from src.server.solr_client import SolrClient
 
 
 @pytest.fixture
@@ -40,61 +40,75 @@ def mock_solr_client():
 @pytest.fixture
 def mock_context(mock_solr_client):
     """Create a mock context with the solr client"""
-    context = MagicMock()
-    context.request_context.lifespan_context = {"solr_client": mock_solr_client}
+    context = AsyncMock()
+    context.request_context.lifespan_context.solr_client = mock_solr_client
+    # Mock async context methods
+    context.info = AsyncMock()
+    context.debug = AsyncMock()
+    context.warning = AsyncMock()
+    context.error = AsyncMock()
     return context
 
 
 @pytest.mark.asyncio
-async def test_search_solr_resource(mock_solr_client):
+async def test_search_solr_resource(mock_context):
     """Test the solr://search/{query} resource"""
-    # Call the resource function
-    result = await search_solr("*:*")
-    
-    # Verify solr client was called with the right parameters
+    # Call the resource function with new signature: ctx, query
+    result = await search_solr(mock_context, "*:*")
+
     # Verify the result is properly formatted
     parsed_result = json.loads(result)
     assert "response" in parsed_result
     assert parsed_result["response"]["numFound"] >= 1
 
+    # Verify ctx.info was called
+    assert mock_context.info.called
+
 
 @pytest.mark.asyncio
-async def test_search_tool(mock_solr_client):
+async def test_search_tool(mock_context):
     """Test the search tool with parameters"""
-    # Prepare parameters
-    params = {
-        "query": "*:*"
-    }
-    
-    # Call the tool function
-    result = await search(params)
-    
-    # Verify solr client was called with the right parameters
+    # Call the tool function with new signature: query, filter_query, sort, rows, start, ctx
+    result = await search(
+        query="*:*",
+        filter_query=None,
+        sort=None,
+        rows=10,
+        start=0,
+        ctx=mock_context
+    )
+
     # Check the result
     assert "response" in result
     assert len(result["response"]["docs"]) > 0
     assert result["response"]["docs"][0]["id"] == "doc1"
     assert result["response"]["docs"][0]["title"] == ["Introduction to Apache Solr"]
 
+    # Verify ctx.info was called
+    assert mock_context.info.called
+
 
 @pytest.mark.asyncio
-async def test_get_document_tool(mock_solr_client):
+async def test_get_document_tool(mock_context):
     """Test the get_document tool"""
-    # Prepare parameters
-    params = {
-        "id": "doc1",
-        "fields": ["title", "author"]
-    }
-    
-    # Call the tool function
-    result = await get_document(params)
+    # Call the tool function with new signature: id, fields, ctx
+    result = await get_document(
+        id="doc1",
+        fields=["title", "author"],
+        ctx=mock_context
+    )
+
     if "id" not in result:
         print(f"WARN: get_document lieferte kein id-Feld: {result}")
         pytest.skip(f"Kein id-Feld im Ergebnis: {result}")
+
     assert result["id"] == "doc1"
     assert result["title"] == ["Introduction to Apache Solr"]
     assert result["author"] == ["John Smith"]
     assert "content" not in result
+
+    # Verify ctx.info was called
+    assert mock_context.info.called
 
 
 @pytest.mark.asyncio

@@ -2,43 +2,35 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Commands
+## Project Overview
+
+This is an MCP (Model Context Protocol) Server for Apache Solr Document Search that bridges LLMs with Solr search capabilities. The project has been fully modernized to **MCP 1.21.0** (2025-03-26 specification), featuring:
+- Modern lifespan context management
+- Streamable HTTP transport (native support)
+- Tool annotations for enhanced client integration
+- Context-based state management
+
+## Essential Commands
 
 ### Environment Setup
 ```bash
-# Install dependencies with uv (recommended)
-uv install
+# Install dependencies (virtual environment must be activated)
+uv install                # Preferred
+pip install -e .         # Alternative
 
-# Or with pip
-pip install -e .
-
-# Create and activate virtual environment (always required)
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .\.venv\Scripts\activate   # Windows
+# Start Solr development environment
+./start_solr.sh          # Includes sample data loading
 ```
 
-### Running the Solr Environment
+### Development Servers
 ```bash
-# Start Solr with sample data
-./start_solr.sh
-
-# Access Solr Admin UI
-# http://localhost:8983/solr/
-```
-
-### Running the MCP Server
-```bash
-# Show available modes
-python run_server.py --mode help
-
-# Run MCP protocol server (for LLM integration)
+# MCP server for LLM integration
 python run_server.py --mode mcp
 
-# Run HTTP API server (for direct testing)
+# HTTP server for direct access (MCP 1.6.0 workaround)
 python run_server.py --mode http
 
-# Development with MCP Inspector GUI
+# MCP development server with inspector GUI
 mcp dev src/server/mcp_server.py
 ```
 
@@ -47,56 +39,73 @@ mcp dev src/server/mcp_server.py
 # Run all tests
 pytest
 
-# Run unit tests only
+# Unit tests only (with mocked Solr)
 pytest tests/test_server.py
 
-# Run integration tests (requires running Solr)
+# Integration tests (requires running Solr)
 pytest tests/test_integration_server.py -m integration
 
-# Run with coverage
+# Run specific test
+pytest tests/test_server.py::test_search_solr_resource -v
+
+# Coverage reporting
 pytest --cov=src
 ```
 
 ### Code Quality
 ```bash
-# Format code
-black .
-
-# Lint code
-flake8
+# Format and lint (required before commits)
+black src/ tests/ && flake8 src/ tests/
 ```
 
-## Architecture Overview
+## High-Level Architecture
 
-This is an MCP (Model Context Protocol) server that provides Apache Solr document search capabilities to LLMs. The key architectural components are:
+### Modern MCP Architecture
+The project uses a unified MCP server architecture with native transport support:
+
+**MCP Server** (`src/server/mcp_server.py`): Modern FastMCP-based server with:
+- **Lifespan Context Manager**: Type-safe dependency injection with `AppContext` dataclass
+- **Multiple Transports**: Native support for stdio, SSE, and Streamable HTTP
+- **Tool Annotations**: Enhanced metadata with `readOnlyHint` for better client UX
+- **Context-Based Logging**: Direct client communication via `ctx.info/debug/warning/error`
+
+**HTTP Server** (`src/server/http_server.py`): Legacy FastAPI-based workaround (no longer required with MCP 1.21.0)
 
 ### Core Components
-- **MCP Server** (`src/server/mcp_server.py`): Main MCP protocol implementation using FastMCP
-- **HTTP Server** (`src/server/http_server.py`): Alternative HTTP API for direct access (MCP 1.6.0 workaround)
-- **Solr Client** (`src/server/solr_client.py`): Async HTTP client for Solr communication
-- **Models** (`src/server/models.py`): Pydantic models for request/response validation
 
-### MCP 1.6.0 Compatibility Notes
-- Uses global variables instead of `app.state` (not supported in MCP 1.6.0)
-- Avoids `lifespan` context manager (causes TaskGroup errors)
-- HTTP access requires separate FastAPI server (`http_server.py`)
+**SolrClient** (`src/server/solr_client.py`): Async HTTP client managing all Solr communication with error handling and connection management.
 
-### Dual Server Architecture
-The project provides two server modes:
-1. **MCP Protocol Mode**: Standard MCP server for LLM integration via `run_server.py --mode mcp`
-2. **HTTP API Mode**: Direct HTTP access via `run_server.py --mode http` (port 8765)
+**Data Models** (`src/server/models.py`): Pydantic models providing type safety for search parameters, document retrieval, and error responses.
 
-### MCP Interface
-- **Resource**: `solr://search/{query}` - Basic search functionality
-- **Tool**: `search` - Advanced search with filtering, sorting, and pagination
-- **Tool**: `get_document` - Retrieve specific documents by ID
+**Entry Point** (`src/main.py`): CLI argument parsing that routes to appropriate server mode, with `run_server.py` as convenience wrapper.
 
-### Development Environment
-- Uses Docker Compose with Solr 9.4+ container
-- Includes sample documents collection named "documents"
-- Configuration via `.env` file (copy from `.env.example`)
+### MCP 1.21.0 Modern Patterns
+
+- **Lifespan Context**: Uses `@asynccontextmanager` pattern with `ctx.request_context.lifespan_context`
+- **Tool Decorators**: `@app.tool()` and `@app.resource()` with metadata annotations
+- **Streamable HTTP**: Native HTTP transport without external workarounds
+- **Type Safety**: `AppContext` dataclass for dependency injection
+
+### Resource and Tool Patterns
+
+**MCP Resources**: `solr://search/{query}` for simple search interface
+**MCP Tools**: 
+- `search`: Advanced search with filtering, sorting, pagination
+- `get_document`: Document retrieval by ID with field selection
+
+Both implement identical business logic but different protocol interfaces.
 
 ### Testing Strategy
-- Unit tests with mocked Solr responses (`test_server.py`)
-- Integration tests with real Solr instance (`test_integration_server.py`)
-- MCP Inspector GUI for interactive testing (`mcp dev`)
+
+**Unit Tests** (`tests/test_server.py`): Mock Solr responses to test logic without external dependencies
+**Integration Tests** (`tests/test_integration_server.py`): Real Solr container tests marked with `@pytest.mark.integration`
+
+Integration tests automatically skip when Solr is unavailable, making them safe for CI/CD.
+
+## Important Context7 Usage
+
+Always use Context7 MCP Server for library documentation (start with 5000 tokens, increase to 20000 if needed, limit to 3 attempts per documentation search).
+
+## Project Management
+
+Check `TASK.md` before starting work and update it when completing tasks. Follow the existing modular structure in `src/server/` rather than the legacy monolithic files.

@@ -1,6 +1,31 @@
 # Project Tasks: MCP-Server for Apache Solr (Focus: Document Search)
 
-## 1. Project Setup (Updated: 26. April 2025)
+## Current Status & Modernization Plan (Updated: 8. November 2025)
+
+**MCP Version**: Successfully upgraded to **MCP 1.21.0** ✅
+
+### Completed Modernization Tasks (November 2025)
+- [x] Upgraded to MCP 1.21.0 with 2025-03-26 specification support
+- [x] Removed MCP 1.6.0 compatibility workarounds:
+  - [x] Replaced global variables with proper lifespan context pattern
+  - [x] Implemented modern lifespan context manager with AppContext dataclass
+  - [x] Added Streamable HTTP transport support (native in MCP 1.21.0)
+- [x] Implemented new MCP features:
+  - [x] Tool Annotations (readOnlyHint) for better client integration
+  - [x] Modern FastMCP decorator pattern (@app.tool, @app.resource)
+  - [x] Context-based state management (ctx.request_context.lifespan_context)
+  - [x] Enhanced logging with ctx.info/debug/warning/error
+- [x] Updated all unit tests for new patterns
+- [x] Verified Streamable HTTP transport functionality
+
+### Next Steps
+- [ ] Update README.md with new MCP version and features
+- [ ] Update CLAUDE.md with modern patterns
+- [ ] Test Claude Desktop integration with MCP 1.21.0
+- [ ] Consider implementing OAuth 2.1 authorization (new in 2025-03-26)
+- [ ] Evaluate JSON-RPC batching support
+
+## 1. Project Setup (Completed: 26. April 2025)
 
 - [x] Create `pyproject.toml` with necessary dependencies (MCP SDK, Pydantic, httpx, etc.)
 - [x] Set up `.env.example` template with Solr connection and authentication variables
@@ -114,30 +139,29 @@
 - [ ] Add inline code documentation for all modules and functions
 - [ ] Create example usage scripts
 
-## Discovered During Work
+## Legacy Issues (MCP 1.6.0) - To be resolved in modernization
 
-- [ ] Investigate how to implement MCP server authentication best practices
-- [ ] Explore creating a prompts interface for common Solr search templates
-- [ ] Consider implementing MCP contexts for more complex operations (26. April 2025)
-- [ ] Research MCP server monitoring and analytics capabilities (26. April 2025)
-- [ ] Consider implementing schema detection for auto-configuring search fields (26. April 2025)
-- [ ] Explore adding facet support for improved document exploration (26. April 2025)
-- [ ] Address MCP version compatibility issues - FastMCP.run() in MCP 1.6.0 doesn't accept host/port parameters directly (26. April 2025)
-- [ ] Fix MCP 1.6.0 lifespan compatibility - lifespan context manager must yield None or nothing to avoid TaskGroup errors (26. April 2025)
+### Completed Workarounds (MCP 1.6.0)
 - [x] Fix MCP 1.6.0 Server TaskGroup error - Using a bare server without lifespan manager resolves the issue (26. April 2025)
 - [x] MCP 1.6.0 doesn't support app.state - Must use global variables instead of app.state to store shared resources (26. April 2025)
 - [x] MCP 1.6.0 doesn't support direct HTTP access - The FastMCP.run() method only supports 'stdio' or 'sse' transport, not HTTP (26. April 2025)
 - [x] Created FastAPI-based workaround for direct HTTP access - Implemented a FastAPI server that mimics MCP functionality but ensures HTTP accessibility (26. April 2025)
 - [x] Reorganize code into modular structure with separate components for Solr client, models, MCP server, and HTTP server (26. April 2025)
 - [x] Create centralized entry point (main.py) with command-line arguments for different server modes (26. April 2025)
-- [x] Move old server implementations to tests/archived for reference (26. April 2025)
-- [x] Move test utilities to tests/tools directory (26. April 2025)
-- [x] Update README.md with new startup commands and project structure (26. April 2025)
-- [x] Remove obsolete my_project directory from src (26. April 2025)
 - [x] VSCode-Konfiguration mit launch.json und tasks.json für einfaches Debugging und Ausführen (26. April 2025)
-- [ ] MCP 1.6.0 'install' Befehl benötigt Claude Desktop App (27. April 2025)
-- [ ] Alternative Integrationsmöglichkeit für GitHub Copilot Chat finden ohne 'mcp install' (27. April 2025)
 - [x] VS Code-Tasks angepasst, um virtuelle Umgebung zu aktivieren (27. April 2025)
+
+### Integration Issues (To be tested with new MCP version)
 - [ ] Claude Desktop App kann den MCP-Server nicht starten - "spawn uv ENOENT" Fehler (27. April 2025)
 - [ ] Alternative Installation des MCP-Servers für Claude ohne uv-Abhängigkeit (27. April 2025)
 - [ ] HTTP-Server als Alternative für Claude Desktop App-Integration testen (27. April 2025)
+
+## Future Enhancements
+
+- [ ] Investigate how to implement MCP server authentication best practices
+- [ ] Explore creating a prompts interface for common Solr search templates
+- [ ] Consider implementing MCP contexts for more complex operations
+- [ ] Research MCP server monitoring and analytics capabilities
+- [ ] Consider implementing schema detection for auto-configuring search fields
+- [ ] Explore adding facet support for improved document exploration
+- [ ] Alternative Integrationsmöglichkeit für GitHub Copilot Chat finden

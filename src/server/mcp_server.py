@@ -10,16 +10,20 @@ import json
 import sys
 import logging
 import traceback
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, AsyncIterator
 from pathlib import Path
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 
 import httpx
 from dotenv import load_dotenv
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 
 # Projektpfad zum System-Pfad hinzufügen, um absolute Imports zu ermöglichen
 # Dadurch können wir den Server mit 'mcp dev' und 'python run_server.py' ausführen
-project_dir = str(Path(__file__).parents[2])  # Zwei Ebenen nach oben: src/server -> src -> Projektwurzel
+project_dir = str(
+    Path(__file__).parents[2]
+)  # Zwei Ebenen nach oben: src/server -> src -> Projektwurzel
 if project_dir not in sys.path:
     sys.path.insert(0, project_dir)
     print(f"Added {project_dir} to system path")
@@ -30,8 +34,7 @@ from src.server.solr_client import SolrClient
 
 # Logger für diese Datei konfigurieren
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("mcp-server")
 
@@ -49,68 +52,110 @@ SOLR_USERNAME = os.getenv("SOLR_USERNAME", "")
 SOLR_PASSWORD = os.getenv("SOLR_PASSWORD", "")
 
 
-# MCP-Server ohne Lifespan-Kontext erstellen (für MCP 1.6.0 Kompatibilität)
-app = FastMCP(MCP_SERVER_NAME)
+@dataclass
+class AppContext:
+    """Application context with typed dependencies."""
 
-# Solr-Client als globale Variable initialisieren (für MCP 1.6.0 Kompatibilität)
-solr_client = SolrClient(
-    base_url=SOLR_BASE_URL,
-    collection=SOLR_COLLECTION,
-    username=SOLR_USERNAME,
-    password=SOLR_PASSWORD
-)
+    solr_client: SolrClient
+
+
+# Lifespan Context Manager für proper state management
+@asynccontextmanager
+async def lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
+    """Initialize and cleanup resources for the MCP server with type-safe context."""
+    logger.info("Initializing MCP server resources...")
+
+    # Initialize Solr client during startup
+    solr_client = SolrClient(
+        base_url=SOLR_BASE_URL,
+        collection=SOLR_COLLECTION,
+        username=SOLR_USERNAME,
+        password=SOLR_PASSWORD,
+    )
+    logger.info("Solr client initialized")
+
+    # Test connection
+    await test_solr_connection(solr_client)
+
+    try:
+        yield AppContext(solr_client=solr_client)
+    finally:
+        # Cleanup on shutdown
+        logger.info("Shutting down MCP server")
+
+
+# MCP-Server with modern lifespan management
+app = FastMCP(MCP_SERVER_NAME, lifespan=lifespan)
 
 
 @app.resource("solr://search/{query}")
-async def search_solr(query: str):
+async def search_solr(ctx: Context, query: str) -> str:
     """
     Einfache Ressource für die Suche in Solr-Dokumenten.
-    
+
     Diese Ressource bietet eine einfache Schnittstelle für Solr-Suchen
     über den MCP-Protokoll-Ressourcenmechanismus.
-    
+
     Args:
+        ctx (Context): MCP context with access to lifespan context
         query (str): Die Suchanfrage
-        
+
     Returns:
         str: JSON-String mit Suchergebnissen
     """
     try:
-        logger.info(f"Verarbeite Suchanfrage mit Query: {query}")
+        await ctx.info(f"Verarbeite Suchanfrage mit Query: {query}")
+        solr_client = ctx.request_context.lifespan_context.solr_client
         results = await solr_client.search(query)
         return json.dumps(results, indent=2)
     except Exception as e:
         logger.error(f"Fehler in search_solr-Ressource: {e}")
         logger.error(traceback.format_exc())
-        return json.dumps({"error": f"Fehler bei der Verarbeitung der Suche: {str(e)}"}, indent=2)
+        return json.dumps(
+            {"error": f"Fehler bei der Verarbeitung der Suche: {str(e)}"}, indent=2
+        )
 
 
-@app.tool()
-async def search(params: Dict[str, Any]) -> Dict[str, Any]:
+@app.tool(
+    annotations={
+        "title": "Search Solr Documents",
+        "readOnlyHint": True,
+        "description": "Advanced search with filtering, sorting, and pagination",
+    }
+)
+async def search(
+    query: str,
+    filter_query: Optional[str] = None,
+    sort: Optional[str] = None,
+    rows: int = 10,
+    start: int = 0,
+    ctx: Context = None,
+) -> Dict[str, Any]:
     """
     Tool für erweiterte Dokumentensuche.
-    
+
     Dieses Tool bietet eine erweiterte Suchfunktionalität mit Filtern,
     Sortierung und Paginierung für Solr-Dokumente.
-    
+
     Args:
-        params (Dict[str, Any]): Suchparameter, einschließlich query, filter_query, sort, rows, start
-        
+        query (str): Solr query string (e.g., "*:*" for all documents)
+        filter_query (Optional[str]): Filter query to narrow results
+        sort (Optional[str]): Sort order (e.g., "date desc")
+        rows (int): Number of results to return (default: 10)
+        start (int): Offset for pagination (default: 0)
+        ctx (Context): MCP context with access to lifespan context
+
     Returns:
         Dict[str, Any]: Suchergebnisse oder Fehlermeldung
     """
     try:
-        logger.info(f"Verarbeite search-Tool-Anfrage mit Parametern: {params}")
-        search_params = SearchParams(**params)
-        
+        await ctx.info(f"Verarbeite search-Tool-Anfrage: {query}")
+
+        solr_client = ctx.request_context.lifespan_context.solr_client
         results = await solr_client.search(
-            query=search_params.query,
-            filter_query=search_params.filter_query,
-            sort=search_params.sort,
-            rows=search_params.rows,
-            start=search_params.start
+            query=query, filter_query=filter_query, sort=sort, rows=rows, start=start
         )
-        
+
         return results
     except Exception as e:
         logger.error(f"Fehler im search-Tool: {e}")
@@ -118,29 +163,36 @@ async def search(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"error": f"Fehler bei der Verarbeitung der Suche: {str(e)}"}
 
 
-@app.tool()
-async def get_document(params: Dict[str, Any]) -> Dict[str, Any]:
+@app.tool(
+    annotations={
+        "title": "Get Solr Document by ID",
+        "readOnlyHint": True,
+        "description": "Retrieve a specific document by its ID with optional field selection",
+    }
+)
+async def get_document(
+    id: str, fields: Optional[List[str]] = None, ctx: Context = None
+) -> Dict[str, Any]:
     """
     Tool zum Abrufen spezifischer Dokumente.
-    
+
     Dieses Tool ermöglicht das Abrufen von Dokumenten nach ID mit optionaler
     Feldauswahl.
-    
+
     Args:
-        params (Dict[str, Any]): Parameter mit id und optionalem fields-Array
-        
+        id (str): Document ID to retrieve
+        fields (Optional[List[str]]): List of fields to return (default: all fields)
+        ctx (Context): MCP context with access to lifespan context
+
     Returns:
         Dict[str, Any]: Das abgerufene Dokument oder Fehlermeldung
     """
     try:
-        logger.info(f"Verarbeite get_document-Tool-Anfrage mit Parametern: {params}")
-        document_params = GetDocumentParams(**params)
-        
-        document = await solr_client.get_document(
-            doc_id=document_params.id,
-            fields=document_params.fields
-        )
-        
+        await ctx.info(f"Verarbeite get_document-Tool-Anfrage für ID: {id}")
+
+        solr_client = ctx.request_context.lifespan_context.solr_client
+        document = await solr_client.get_document(doc_id=id, fields=fields)
+
         return document
     except Exception as e:
         logger.error(f"Fehler im get_document-Tool: {e}")
@@ -148,17 +200,20 @@ async def get_document(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"error": f"Fehler beim Abrufen des Dokuments: {str(e)}"}
 
 
-async def test_solr_connection():
+async def test_solr_connection(solr_client: SolrClient):
     """
     Testet die Verbindung zum Solr-Server vor dem Start des MCP-Servers.
-    
+
+    Args:
+        solr_client (SolrClient): The Solr client instance to test
+
     Returns:
         bool: True, wenn die Verbindung erfolgreich war, sonst False
     """
     try:
         logger.info("Teste Solr-Verbindung...")
         async with httpx.AsyncClient() as client:
-            ping_url = f"{SOLR_BASE_URL}/{SOLR_COLLECTION}/admin/ping"
+            ping_url = f"{solr_client.base_url}/{solr_client.collection}/admin/ping"
             response = await client.get(ping_url)
             response.raise_for_status()
             logger.info("Solr-Verbindung erfolgreich")
@@ -172,19 +227,29 @@ async def test_solr_connection():
 if __name__ == "__main__":
     # Umgebungsvariablen für den MCP-Server setzen
     os.environ["MCP_PORT"] = str(MCP_SERVER_PORT)
-    
+
     import asyncio
-    
-    # Teste die Solr-Verbindung vor dem Start
-    asyncio.run(test_solr_connection())
-    
+
+    # Solr-Verbindung wird im Lifespan-Kontext getestet
+
     try:
-        # Server starten (nutzt MCP FastMCP.run() ohne Parameter für MCP 1.6.0 Kompatibilität)
-        logger.info(f"Starte MCP-Server '{MCP_SERVER_NAME}' auf Port {MCP_SERVER_PORT}...")
-        print(f"MCP-Server wird gestartet, nutze 'mcp dev {__file__}' für die Entwicklungsumgebung")
-        print("Server ist als MCP-Protokoll verfügbar, aber nicht direkt über HTTP erreichbar")
-        print("Für direkten HTTP-Zugriff bitte src/server/http_server.py verwenden")
-        app.run()
+        # Server starten mit modernem FastMCP
+        logger.info(
+            f"Starte MCP-Server '{MCP_SERVER_NAME}' auf Port {MCP_SERVER_PORT}..."
+        )
+        print(
+            f"MCP-Server wird gestartet, nutze 'mcp dev {__file__}' für die Entwicklungsumgebung"
+        )
+        print("Server unterstützt sowohl MCP-Protokoll als auch HTTP-Transport")
+        # Test available transports
+        if len(sys.argv) > 1 and sys.argv[1] == "--http":
+            print("Starting server with Streamable HTTP transport...")
+            app.run(transport="streamable-http")
+        elif len(sys.argv) > 1 and sys.argv[1] == "--sse":
+            print("Starting server with SSE transport...")
+            app.run(transport="sse")
+        else:
+            app.run(transport="stdio")
     except Exception as e:
         logger.error(f"Fehler beim Starten des Servers: {e}")
         logger.error(traceback.format_exc())
