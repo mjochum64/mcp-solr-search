@@ -366,16 +366,25 @@ Um den MCP-Server in externe Tools (z.B. Claude Desktop, VSCode Dev Containers, 
 
 ```json
 "solr-search": {
-  "command": "/bin/bash",
+  "command": "/home/mjochum/miniconda3/bin/uv",
   "args": [
-    "-c",
-    "uv run --with mcp[cli] mcp run ${HOME}/projekte/mcp-solr-search/src/server/mcp_server.py"
+    "run",
+    "--project",
+    "/home/mjochum/projekte/mcp-solr-search",
+    "--with",
+    "mcp[cli]>=1.21.0",
+    "mcp",
+    "run",
+    "/home/mjochum/projekte/mcp-solr-search/src/server/mcp_server.py"
   ]
 }
 ```
 
-- Passe den Pfad ggf. an dein System an.
-- Das Kommando sorgt dafür, dass alle Abhängigkeiten und das MCP-CLI im Kontext verfügbar sind und der Server im MCP-Protokoll-Modus läuft.
+**Wichtig:**
+- Verwende **absolute Pfade** für sowohl das `uv` Kommando als auch die Serverdatei
+- Passe die Pfade an dein System an (`/home/mjochum/...` → dein Home-Verzeichnis)
+- Das `--project` Argument stellt sicher, dass die richtigen Dependencies geladen werden
+- Das Kommando sorgt dafür, dass alle Abhängigkeiten (inkl. MCP 1.21.0) im Kontext verfügbar sind
 
 ## Development
 
