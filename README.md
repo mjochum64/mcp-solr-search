@@ -6,6 +6,7 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 
 - MCP Resources for searching Solr documents
 - MCP Tools for advanced search and document retrieval
+- **Faceted Search** support for data exploration and aggregation
 - Asynchronous communication with Solr using httpx
 - Type-safe interfaces with Pydantic models
 - Authentication support (JWT)
@@ -166,7 +167,7 @@ mcp install src/server/mcp_server.py --name "Solr Search"
 The server exposes the following MCP endpoints:
 
 - **Resource**: `solr://search/{query}` - Basic search functionality
-- **Tool**: `search` - Advanced search with filtering, sorting, and pagination
+- **Tool**: `search` - Advanced search with filtering, sorting, pagination, and faceting
 - **Tool**: `get_document` - Retrieve specific documents by ID
 
 ### Example: Using the search tool
@@ -183,6 +184,22 @@ result = await session.call_tool(
         "start": 0
     }
 )
+```
+
+### Example: Using faceted search
+
+```python
+# Example of using faceted search to explore data
+result = await session.call_tool(
+    "search",
+    arguments={
+        "query": "*:*",
+        "rows": 10,
+        "facet_fields": ["category", "author"]
+    }
+)
+# Response includes facet_counts with aggregated counts per field value
+# e.g., {"category": ["programming", 3, "technology", 3, ...]}
 ```
 
 ### Example: Using the document retrieval tool
@@ -257,6 +274,19 @@ Then open http://127.0.0.1:6274 in your browser to access the MCP Inspector.
    }
    ```
    - Click "Execute"
+
+3. **Using Faceted Search**:
+   - Go to the "Tools" section and select the "search" tool
+   - Enter parameters with facet_fields:
+   ```json
+   {
+     "query": "*:*",
+     "rows": 10,
+     "facet_fields": ["category", "author"]
+   }
+   ```
+   - Click "Execute"
+   - Response will include `facet_counts` with aggregated data per field
 
 #### Retrieving a document:
 
