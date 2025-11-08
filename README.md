@@ -15,7 +15,7 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 
 ## Current Version
 
-**Version 1.1.0** - Modernized with MCP 1.21.0 (2025-03-26 specification). See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
+**Version 1.2.0** - Added Faceted Search support for data exploration and aggregation. See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
 
 ## What is MCP?
 

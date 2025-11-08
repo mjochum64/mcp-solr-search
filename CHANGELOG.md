@@ -2,6 +2,53 @@
 
 Dieses Dokument dokumentiert alle wichtigen Änderungen am MCP-Server für Apache Solr.
 
+## [1.2.0] - 2025-11-08
+
+### Hinzugefügt
+- **Faceted Search Support**: Neuer `facet_fields` Parameter für das `search` Tool
+- Automatische Aggregation von Feldwerten mit Counts
+- Facet-Unterstützung in SolrClient.search() Methode
+- Zwei neue Unit Tests für Faceted Search Funktionalität
+- Dokumentation und Beispiele für Faceted Search in README.md
+
+### Geändert
+- `search` Tool erweitert um optionalen `facet_fields` Parameter
+- Tool-Beschreibung aktualisiert: "Advanced search with filtering, sorting, pagination, and faceting"
+- README Features-Liste um "Faceted Search" erweitert
+- MCP Inspector Anleitung um Faceted Search Beispiele erweitert
+
+### Technische Details
+- Response enthält jetzt `facet_counts.facet_fields` wenn `facet_fields` angegeben
+- Automatisches Setzen von `facet=true` und `facet.mincount=1` in Solr Query
+- Alle 7 Unit Tests passing ✅
+
+## [1.1.0] - 2025-11-08
+
+### Hinzugefügt
+- **MCP 1.21.0 Modernisierung**: Vollständige Unterstützung der 2025-03-26 Spezifikation
+- Lifespan Context Manager mit typsicherer `AppContext` Dataclass
+- Tool Annotations (readOnlyHint, title, description)
+- Context-basierte Logging-Methoden (ctx.info/debug/warning/error)
+- Modern FastMCP Decorator Pattern (@app.tool, @app.resource)
+- Native Streamable HTTP Transport Support
+
+### Geändert
+- Upgrade von MCP 1.12.3 auf MCP 1.21.0
+- Ersetzen globaler Variablen durch Lifespan Context Pattern
+- Funktion-Signaturen modernisiert (Parameter first, ctx last)
+- Enhanced Logging mit direkter Client-Kommunikation
+- Alle Unit Tests für neue Patterns aktualisiert
+
+### Entfernt
+- MCP 1.6.0 Kompatibilitäts-Workarounds
+- FastAPI HTTP Server Workaround (ersetzt durch native Streamable HTTP)
+- Globale Variablen für State Management
+
+### Behoben
+- TaskGroup-Fehler durch modernen Lifespan Context Manager
+- Claude Desktop Integration mit absoluten Pfaden
+- Dokumentationsinkonsistenzen in README.md
+
 ## [1.0.0] - 2025-04-26
 
 ### Hinzugefügt
