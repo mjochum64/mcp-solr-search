@@ -2,6 +2,28 @@
 
 Dieses Dokument dokumentiert alle wichtigen Änderungen am MCP-Server für Apache Solr.
 
+## [1.3.0] - 2025-11-08
+
+### Hinzugefügt
+- **Highlighting Support**: Neuer `highlight_fields` Parameter für das `search` Tool
+- Highlighting zeigt mit `<em>` Tags, wo Suchbegriffe in Ergebnissen vorkommen
+- Highlighting-Unterstützung in SolrClient.search() Methode
+- Zwei neue Unit Tests für Highlighting-Funktionalität
+- Zwei neue Integration Tests mit echtem Solr für Highlighting
+- Dokumentation und Beispiele für Highlighting in README.md
+
+### Geändert
+- `search` Tool erweitert um optionalen `highlight_fields` Parameter
+- Tool-Beschreibung aktualisiert: "Advanced search with filtering, sorting, pagination, faceting, and highlighting"
+- README Features-Liste um "Highlighting" erweitert
+- MCP Inspector Anleitung um Highlighting-Beispiele erweitert
+
+### Technische Details
+- Response enthält jetzt `highlighting` Section wenn `highlight_fields` angegeben
+- Automatisches Setzen von `hl=true`, `hl.fl`, `hl.snippets=3` und `hl.fragsize=150` in Solr Query
+- Alle 11 Unit Tests passing (9 bestehende + 2 neue) ✅
+- Alle 7 Integration Tests passing (5 bestehende + 2 neue) ✅
+
 ## [1.2.0] - 2025-11-08
 
 ### Hinzugefügt

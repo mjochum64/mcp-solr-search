@@ -39,10 +39,26 @@ class MockRequestContext:
 
 class MockContext:
     """Mock MCP context for integration testing."""
-    
+
     def __init__(self, request_context):
         """Initialize the mock context with the provided request context."""
         self.request_context = request_context
+
+    async def info(self, message: str):
+        """Mock info logging."""
+        pass
+
+    async def debug(self, message: str):
+        """Mock debug logging."""
+        pass
+
+    async def warning(self, message: str):
+        """Mock warning logging."""
+        pass
+
+    async def error(self, message: str):
+        """Mock error logging."""
+        pass
 
 
 @pytest.fixture
@@ -93,12 +109,16 @@ async def test_search_tool_integration(integration_context):
         pytest.skip("Solr server not available")
 
     # Test mit *:* und ohne Filter
-    params = {
-        "query": "*:*",
-        "rows": 3,
-        "start": 0
-    }
-    result = await search(integration_context, params)  # ctx, params order
+    result = await search(
+        query="*:*",
+        filter_query=None,
+        sort=None,
+        rows=3,
+        start=0,
+        facet_fields=None,
+        highlight_fields=None,
+        ctx=integration_context
+    )
     
     # Verify result structure
     assert "responseHeader" in result
@@ -122,15 +142,11 @@ async def test_get_document_tool_integration(integration_context):
         pytest.skip("Solr server not available")
 
     # Test retrieving a specific document
-    params = {
-        "id": "doc1",
-        "fields": ["title", "author"]
-    }
-    
-    result = await get_document(integration_context, {
-        "id": "doc1",
-        "fields": ["title", "author"]
-    })  # ctx, params order
+    result = await get_document(
+        id="doc1",
+        fields=["title", "author"],
+        ctx=integration_context
+    )
     if "id" not in result:
         print(f"WARN: get_document lieferte kein id-Feld: {result}")
         pytest.skip(f"Kein id-Feld im Ergebnis: {result}")
@@ -187,6 +203,117 @@ async def test_error_handling_integration(solr_client):
     result = await solr_client.get_document(
         doc_id="non_existent_document_id"
     )
-    
+
     # Should return an error message
     assert "error" in result
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_search_tool_with_highlighting_integration(integration_context):
+    """Test the search tool with highlight_fields parameter using real Solr."""
+    # Skip if Solr is not available
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:8983/solr/documents/admin/ping")
+            response.raise_for_status()
+    except (httpx.RequestError, httpx.HTTPStatusError):
+        pytest.skip("Solr server not available")
+
+    # Test search with highlighting on title and content fields
+    # Use field-specific query to ensure matches
+    result = await search(
+        query="title:machine",
+        filter_query=None,
+        sort=None,
+        rows=5,
+        start=0,
+        facet_fields=None,
+        highlight_fields=["title", "content"],
+        ctx=integration_context
+    )
+
+    # Verify result structure
+    assert "responseHeader" in result
+    assert "response" in result
+    assert result["responseHeader"]["status"] == 0
+
+    # Verify highlighting is present
+    assert "highlighting" in result
+
+    # Verify that at least one document has highlighting
+    assert len(result["highlighting"]) > 0
+
+    # Get the first document ID from results (should be doc2 for "machine")
+    assert result["response"]["numFound"] > 0
+    first_doc_id = result["response"]["docs"][0]["id"]
+
+    # Verify highlighting exists for this document
+    assert first_doc_id in result["highlighting"]
+    doc_highlights = result["highlighting"][first_doc_id]
+
+    # Verify that title field has highlighting with <em> tags
+    assert "title" in doc_highlights
+    assert len(doc_highlights["title"]) > 0
+    title_highlight = doc_highlights["title"][0]
+    assert "<em>" in title_highlight and "</em>" in title_highlight
+    print(f"Title highlight: {title_highlight}")
+
+    # Content field should also have highlighting
+    if "content" in doc_highlights and len(doc_highlights["content"]) > 0:
+        content_highlight = doc_highlights["content"][0]
+        assert "<em>" in content_highlight and "</em>" in content_highlight
+        print(f"Content highlight: {content_highlight}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_solr_client_search_with_highlighting_integration(solr_client):
+    """Test SolrClient search method with highlight_fields using real Solr."""
+    # Skip if Solr is not available
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:8983/solr/documents/admin/ping")
+            response.raise_for_status()
+    except (httpx.RequestError, httpx.HTTPStatusError):
+        pytest.skip("Solr server not available")
+
+    # Test search with highlighting
+    # Use field-specific query to ensure matches
+    result = await solr_client.search(
+        query="title:python",
+        highlight_fields=["title", "content"],
+        rows=10
+    )
+
+    # Verify result structure
+    assert "responseHeader" in result
+    assert "response" in result
+    assert result["responseHeader"]["status"] == 0
+
+    # Verify highlighting section is present
+    assert "highlighting" in result
+
+    # Verify highlighting has data (should have at least one document)
+    assert len(result["highlighting"]) > 0
+
+    # Check that highlighting contains expected structure
+    # Get first highlight entry (should be doc3 for "python")
+    first_doc_id = list(result["highlighting"].keys())[0]
+    first_doc_highlights = result["highlighting"][first_doc_id]
+
+    # first_doc_highlights should be a dict with field names as keys
+    assert isinstance(first_doc_highlights, dict)
+
+    # Verify that title field has highlighting with <em> tags
+    assert "title" in first_doc_highlights
+    assert len(first_doc_highlights["title"]) > 0
+    title_highlight = first_doc_highlights["title"][0]
+    assert "<em>" in title_highlight and "</em>" in title_highlight
+    print(f"Title highlight for {first_doc_id}: {title_highlight}")
+
+    # Content field should also have highlighting
+    if "content" in first_doc_highlights and len(first_doc_highlights["content"]) > 0:
+        content_highlight = first_doc_highlights["content"][0]
+        assert "<em>" in content_highlight and "</em>" in content_highlight
+        print(f"Content highlight for {first_doc_id}: {content_highlight}")

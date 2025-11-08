@@ -276,3 +276,125 @@ async def test_solr_client_search_with_facets():
         assert "technology" in category_facets
         assert category_facets[category_facets.index("programming") + 1] == 3
         assert category_facets[category_facets.index("technology") + 1] == 3
+
+
+@pytest.mark.asyncio
+async def test_search_tool_with_highlighting(mock_context):
+    """Test the search tool with highlight_fields parameter"""
+    # Setup mock to return highlighting
+    highlighted_result = {
+        "responseHeader": {"status": 0},
+        "response": {
+            "numFound": 2,
+            "start": 0,
+            "docs": [
+                {"id": "doc1", "title": ["Machine Learning Basics"], "content": ["This is an introduction to machine learning concepts"]},
+                {"id": "doc2", "title": ["Deep Learning"], "content": ["Deep learning is a subset of machine learning"]}
+            ]
+        },
+        "highlighting": {
+            "doc1": {
+                "title": ["<em>Machine</em> Learning Basics"],
+                "content": ["This is an introduction to <em>machine</em> learning concepts"]
+            },
+            "doc2": {
+                "title": ["Deep Learning"],
+                "content": ["Deep learning is a subset of <em>machine</em> learning"]
+            }
+        }
+    }
+    mock_context.request_context.lifespan_context.solr_client.search.return_value = highlighted_result
+
+    # Call the tool with highlight_fields
+    result = await search(
+        query="machine",
+        filter_query=None,
+        sort=None,
+        rows=10,
+        start=0,
+        facet_fields=None,
+        highlight_fields=["title", "content"],
+        ctx=mock_context
+    )
+
+    # Verify highlighting is in the result
+    assert "highlighting" in result
+    assert "doc1" in result["highlighting"]
+    assert "doc2" in result["highlighting"]
+
+    # Verify doc1 highlighting
+    doc1_highlights = result["highlighting"]["doc1"]
+    assert "title" in doc1_highlights
+    assert "content" in doc1_highlights
+    assert "<em>Machine</em>" in doc1_highlights["title"][0]
+    assert "<em>machine</em>" in doc1_highlights["content"][0]
+
+    # Verify ctx.info was called
+    assert mock_context.info.called
+
+
+@pytest.mark.asyncio
+async def test_solr_client_search_with_highlighting():
+    """Test SolrClient search method with highlight_fields"""
+    mock_response = AsyncMock()
+    mock_response.raise_for_status = AsyncMock()
+    mock_response.json = AsyncMock(return_value={
+        "responseHeader": {"status": 0},
+        "response": {
+            "numFound": 2,
+            "start": 0,
+            "docs": [
+                {"id": "doc1", "title": "Apache Solr Tutorial", "content": "Learn about Apache Solr search engine"},
+                {"id": "doc2", "title": "Solr Configuration", "content": "How to configure your Solr instance"}
+            ]
+        },
+        "highlighting": {
+            "doc1": {
+                "title": ["Apache <em>Solr</em> Tutorial"],
+                "content": ["Learn about Apache <em>Solr</em> search engine"]
+            },
+            "doc2": {
+                "title": ["<em>Solr</em> Configuration"],
+                "content": ["How to configure your <em>Solr</em> instance"]
+            }
+        }
+    })
+
+    async def get(*args, **kwargs):
+        return mock_response
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value.get = get
+
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        client = SolrClient(
+            base_url="http://example.com/solr",
+            collection="test_collection"
+        )
+        result = await client.search(
+            query="Solr",
+            highlight_fields=["title", "content"]
+        )
+
+        # Verify response structure
+        assert result["response"]["numFound"] == 2
+        assert len(result["response"]["docs"]) == 2
+
+        # Verify highlighting is present
+        assert "highlighting" in result
+        assert "doc1" in result["highlighting"]
+        assert "doc2" in result["highlighting"]
+
+        # Verify highlighting content for doc1
+        doc1_highlights = result["highlighting"]["doc1"]
+        assert "title" in doc1_highlights
+        assert "content" in doc1_highlights
+        assert "<em>Solr</em>" in doc1_highlights["title"][0]
+        assert "<em>Solr</em>" in doc1_highlights["content"][0]
+
+        # Verify highlighting content for doc2
+        doc2_highlights = result["highlighting"]["doc2"]
+        assert "title" in doc2_highlights
+        assert "content" in doc2_highlights
+        assert "<em>Solr</em>" in doc2_highlights["title"][0]
+        assert "<em>Solr</em>" in doc2_highlights["content"][0]
