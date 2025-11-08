@@ -2,8 +2,15 @@
 
 ## Current Status & Version History (Updated: 8. November 2025)
 
-**Current Version**: **1.2.0** ✅
+**Current Version**: **1.3.0** ✅
 **MCP Version**: **MCP 1.21.0** (2025-03-26 specification) ✅
+
+### Version 1.3.0 - Highlighting Support (8. November 2025)
+- [x] Implemented Highlighting to show where search terms appear
+- [x] Added `highlight_fields` parameter to search tool
+- [x] Highlighting with `<em>` tags around matched terms
+- [x] Unit tests and integration tests with live Solr
+- [x] Documentation and examples updated
 
 ### Version 1.2.0 - Faceted Search Support (8. November 2025)
 - [x] Implemented Faceted Search for data exploration
@@ -30,11 +37,11 @@
 - [x] Tested Claude Desktop integration with MCP 1.21.0
 
 ### Next Steps (Priority Order)
-- [ ] Implement Highlighting support (show where search terms appear)
 - [ ] Consider implementing OAuth 2.1 authorization (new in 2025-03-26)
 - [ ] Evaluate JSON-RPC batching support
 - [ ] Multiple cores/collections support
 - [ ] Schema inspection tool
+- [ ] Advanced highlighting configuration options
 
 ## 1. Project Setup (Completed: 26. April 2025)
 
@@ -71,7 +78,7 @@
 - [x] Implement support for:
   - [x] Basic search functionality
   - [x] Faceted search (v1.2.0)
-  - [ ] Highlighting
+  - [x] Highlighting (v1.3.0)
   - [ ] Multiple cores/collections
   - [x] Document retrieval by ID
 - [x] Add error handling for Solr connection and query issues
@@ -98,7 +105,7 @@
   - [x] Query parameter validation
   - [x] Support for filter queries, sorting, and pagination
   - [x] Support for facets (v1.2.0)
-  - [ ] Support for highlighting
+  - [x] Support for highlighting (v1.3.0)
 - [x] Implement document retrieval tool:
   - [x] Support for retrieving by ID
   - [x] Support for field selection

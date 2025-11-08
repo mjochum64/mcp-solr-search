@@ -36,7 +36,8 @@ class SolrClient:
     
     async def search(self, query: str = "*:*", filter_query: Optional[str] = None,
                     sort: Optional[str] = None, rows: int = 10,
-                    start: int = 0, facet_fields: Optional[List[str]] = None) -> Dict[str, Any]:
+                    start: int = 0, facet_fields: Optional[List[str]] = None,
+                    highlight_fields: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Führt eine Suchanfrage an Solr aus.
 
@@ -47,9 +48,10 @@ class SolrClient:
             rows (int): Anzahl der zurückgegebenen Dokumente (Standard: 10)
             start (int): Offset für Paginierung (Standard: 0)
             facet_fields (Optional[List[str]]): Liste von Feldern für Faceted Search
+            highlight_fields (Optional[List[str]]): Liste von Feldern für Highlighting
 
         Returns:
-            Dict[str, Any]: Die Suchergebnisse von Solr (inkl. facet_counts wenn facet_fields angegeben)
+            Dict[str, Any]: Die Suchergebnisse von Solr (inkl. facet_counts und highlighting wenn aktiviert)
         """
         params = {
             "q": query or "*:*",
@@ -70,7 +72,14 @@ class SolrClient:
             params["facet"] = "true"
             params["facet.field"] = facet_fields
             params["facet.mincount"] = 1  # Nur Werte mit mindestens 1 Dokument
-            
+
+        # Füge Highlighting-Parameter hinzu, wenn highlight_fields angegeben ist
+        if highlight_fields:
+            params["hl"] = "true"
+            params["hl.fl"] = ",".join(highlight_fields)
+            params["hl.snippets"] = 3  # Max. 3 Snippets pro Feld
+            params["hl.fragsize"] = 150  # 150 Zeichen pro Fragment
+
         auth = None
         if self.username and self.password:
             auth = (self.username, self.password)

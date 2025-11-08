@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: solr_mcp_server
-Version: 1.0.0
+Version: 1.2.0
 Summary: An MCP Server for Apache Solr document search
 Author-email: Martin Jochum <mjochum64@gmail.com>
 Keywords: mcp,solr,search,apache-solr,document-search
@@ -13,7 +13,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: httpx>=0.24.1
-Requires-Dist: mcp[cli]==1.12.3
+Requires-Dist: mcp[cli]>=1.21.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyjwt>=2.6.0
 Requires-Dist: passlib>=1.7.4
@@ -32,6 +32,7 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 
 - MCP Resources for searching Solr documents
 - MCP Tools for advanced search and document retrieval
+- **Faceted Search** support for data exploration and aggregation
 - Asynchronous communication with Solr using httpx
 - Type-safe interfaces with Pydantic models
 - Authentication support (JWT)
@@ -40,7 +41,7 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 
 ## Current Version
 
-**Version 1.0.0** - See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
+**Version 1.2.0** - Added Faceted Search support for data exploration and aggregation. See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
 
 ## What is MCP?
 
@@ -55,7 +56,7 @@ The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/pytho
 - Python 3.11+
 - Docker and Docker Compose (for the integrated Solr environment)
 - `uv` package manager (recommended)
-- MCP 1.6.0+ (see compatibility notes below)
+- MCP 1.21.0+ (fully compatible with 2025-03-26 specification)
 
 ## Installation
 
@@ -95,43 +96,45 @@ The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/pytho
 
    > **Note**: Always ensure the virtual environment is activated before running the server or client tools. Many connection issues are caused by running commands outside the virtual environment.
 
-## MCP Compatibility Notes
+## MCP 1.21.0 Modern Features
 
-This project is currently developed and tested with MCP 1.6.0, which has some API differences from earlier versions:
+This project uses the latest MCP 1.21.0 SDK with full support for the 2025-03-26 specification:
 
-- MCP 1.6.0 doesn't support the `app.state` attribute for storing shared state
-- The `lifespan` context manager pattern causes TaskGroup errors in MCP 1.6.0
-- Instead, the project uses global variables for shared resources (such as the Solr client)
-- MCP 1.6.0 doesn't support direct HTTP access - The FastMCP.run() method only supports 'stdio' or 'sse' transport
+✅ **Lifespan Context Manager**: Type-safe dependency injection with `AppContext` dataclass
+✅ **Streamable HTTP Transport**: Native HTTP support without external workarounds
+✅ **Tool Annotations**: Enhanced metadata (`readOnlyHint`, `title`, `description`)
+✅ **Context-Based Logging**: Direct client communication via `ctx.info/debug/warning/error`
+✅ **Modern Decorators**: `@app.tool()` and `@app.resource()` patterns
 
-If you're using a different MCP version, you may need to adjust the code accordingly. See the TASK.md file under "Discovered During Work" for more details on compatibility issues.
+### Migration from MCP 1.6.0
 
-## Direct HTTP Access Workaround
+The project has been fully modernized from MCP 1.6.0. Key changes:
+- ❌ Global variables → ✅ Lifespan context (`ctx.request_context.lifespan_context`)
+- ❌ TaskGroup errors → ✅ Stable `@asynccontextmanager` pattern
+- ❌ FastAPI HTTP workaround → ✅ Native Streamable HTTP transport
 
-Since MCP 1.6.0 doesn't support direct HTTP access through its standard API, this project includes a FastAPI-based alternative server that mimics the MCP interface but ensures HTTP accessibility:
+## Native HTTP Support (Streamable HTTP)
+
+MCP 1.21.0 includes native **Streamable HTTP transport** support. Start the server with HTTP transport:
 
 ```bash
-# Run the FastAPI-based server for direct HTTP access
+# Run with native Streamable HTTP transport
+python src/server/mcp_server.py --http
+# Or use the convenience wrapper
 python run_server.py --mode http
 ```
 
-This server provides:
-- Direct HTTP access on port 8765
-- MCP-compatible tool endpoints (e.g., `/tool/search`)
-- MCP-compatible resource endpoints (e.g., `/resource/solr://search/{query}`)
-- Interactive API documentation at http://localhost:8765/docs
+The server will be available at `http://127.0.0.1:8000` with full MCP protocol support over HTTP.
 
-Example of direct HTTP access with curl:
+### Legacy HTTP Server
+
+The FastAPI-based HTTP server (`src/server/http_server.py`) is still available for backwards compatibility:
 
 ```bash
-# Tool endpoint example
-curl -X POST http://localhost:8765/tool/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "*:*", "rows": 5}'
-
-# Resource endpoint example
-curl -G http://localhost:8765/resource/solr%3A%2F%2Fsearch%2F%2A%3A%2A
+python run_server.py --mode http-legacy
 ```
+
+**Note**: The legacy HTTP server is no longer required with MCP 1.21.0 and may be deprecated in future versions. Use native Streamable HTTP transport for new integrations.
 
 ## Usage
 
@@ -190,7 +193,7 @@ mcp install src/server/mcp_server.py --name "Solr Search"
 The server exposes the following MCP endpoints:
 
 - **Resource**: `solr://search/{query}` - Basic search functionality
-- **Tool**: `search` - Advanced search with filtering, sorting, and pagination
+- **Tool**: `search` - Advanced search with filtering, sorting, pagination, and faceting
 - **Tool**: `get_document` - Retrieve specific documents by ID
 
 ### Example: Using the search tool
@@ -207,6 +210,22 @@ result = await session.call_tool(
         "start": 0
     }
 )
+```
+
+### Example: Using faceted search
+
+```python
+# Example of using faceted search to explore data
+result = await session.call_tool(
+    "search",
+    arguments={
+        "query": "*:*",
+        "rows": 10,
+        "facet_fields": ["category", "author"]
+    }
+)
+# Response includes facet_counts with aggregated counts per field value
+# e.g., {"category": ["programming", 3, "technology", 3, ...]}
 ```
 
 ### Example: Using the document retrieval tool
@@ -281,6 +300,19 @@ Then open http://127.0.0.1:6274 in your browser to access the MCP Inspector.
    }
    ```
    - Click "Execute"
+
+3. **Using Faceted Search**:
+   - Go to the "Tools" section and select the "search" tool
+   - Enter parameters with facet_fields:
+   ```json
+   {
+     "query": "*:*",
+     "rows": 10,
+     "facet_fields": ["category", "author"]
+   }
+   ```
+   - Click "Execute"
+   - Response will include `facet_counts` with aggregated data per field
 
 #### Retrieving a document:
 
@@ -383,6 +415,32 @@ If you can access the MCP Inspector but not connect with other clients:
    ```bash
    MCP_DEBUG=1 python run_server.py --mode mcp
    ```
+
+## Integration in Tool-Launcher oder Service-Definitionen
+
+Um den MCP-Server in externe Tools (z.B. Claude Desktop, VSCode Dev Containers, eigene Tool-Runner) einzubinden, verwende folgende Konfiguration:
+
+```json
+"solr-search": {
+  "command": "/home/mjochum/miniconda3/bin/uv",
+  "args": [
+    "run",
+    "--project",
+    "/home/mjochum/projekte/mcp-solr-search",
+    "--with",
+    "mcp[cli]>=1.21.0",
+    "mcp",
+    "run",
+    "/home/mjochum/projekte/mcp-solr-search/src/server/mcp_server.py"
+  ]
+}
+```
+
+**Wichtig:**
+- Verwende **absolute Pfade** für sowohl das `uv` Kommando als auch die Serverdatei
+- Passe die Pfade an dein System an (`/home/mjochum/...` → dein Home-Verzeichnis)
+- Das `--project` Argument stellt sicher, dass die richtigen Dependencies geladen werden
+- Das Kommando sorgt dafür, dass alle Abhängigkeiten (inkl. MCP 1.21.0) im Kontext verfügbar sind
 
 ## Development
 

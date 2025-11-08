@@ -7,6 +7,7 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 - MCP Resources for searching Solr documents
 - MCP Tools for advanced search and document retrieval
 - **Faceted Search** support for data exploration and aggregation
+- **Highlighting** support to show where search terms appear in results
 - Asynchronous communication with Solr using httpx
 - Type-safe interfaces with Pydantic models
 - Authentication support (JWT)
@@ -15,7 +16,7 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 
 ## Current Version
 
-**Version 1.2.0** - Added Faceted Search support for data exploration and aggregation. See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
+**Version 1.3.0** - Added Highlighting support to show where search terms appear in results. See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
 
 ## What is MCP?
 
@@ -167,7 +168,7 @@ mcp install src/server/mcp_server.py --name "Solr Search"
 The server exposes the following MCP endpoints:
 
 - **Resource**: `solr://search/{query}` - Basic search functionality
-- **Tool**: `search` - Advanced search with filtering, sorting, pagination, and faceting
+- **Tool**: `search` - Advanced search with filtering, sorting, pagination, faceting, and highlighting
 - **Tool**: `get_document` - Retrieve specific documents by ID
 
 ### Example: Using the search tool
@@ -200,6 +201,22 @@ result = await session.call_tool(
 )
 # Response includes facet_counts with aggregated counts per field value
 # e.g., {"category": ["programming", 3, "technology", 3, ...]}
+```
+
+### Example: Using highlighting
+
+```python
+# Example of using highlighting to show where search terms appear
+result = await session.call_tool(
+    "search",
+    arguments={
+        "query": "title:machine",
+        "rows": 10,
+        "highlight_fields": ["title", "content"]
+    }
+)
+# Response includes highlighting with <em> tags around matched terms
+# e.g., {"doc2": {"title": ["<em>Machine</em> Learning Basics"], ...}}
 ```
 
 ### Example: Using the document retrieval tool
@@ -287,6 +304,19 @@ Then open http://127.0.0.1:6274 in your browser to access the MCP Inspector.
    ```
    - Click "Execute"
    - Response will include `facet_counts` with aggregated data per field
+
+4. **Using Highlighting**:
+   - Go to the "Tools" section and select the "search" tool
+   - Enter parameters with highlight_fields:
+   ```json
+   {
+     "query": "title:machine",
+     "rows": 10,
+     "highlight_fields": ["title", "content"]
+   }
+   ```
+   - Click "Execute"
+   - Response will include `highlighting` with `<em>` tags around matched terms
 
 #### Retrieving a document:
 

@@ -120,7 +120,7 @@ async def search_solr(ctx: Context, query: str) -> str:
     annotations={
         "title": "Search Solr Documents",
         "readOnlyHint": True,
-        "description": "Advanced search with filtering, sorting, pagination, and faceting",
+        "description": "Advanced search with filtering, sorting, pagination, faceting, and highlighting",
     }
 )
 async def search(
@@ -130,13 +130,14 @@ async def search(
     rows: int = 10,
     start: int = 0,
     facet_fields: Optional[List[str]] = None,
+    highlight_fields: Optional[List[str]] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
     """
     Tool für erweiterte Dokumentensuche.
 
     Dieses Tool bietet eine erweiterte Suchfunktionalität mit Filtern,
-    Sortierung, Paginierung und Faceted Search für Solr-Dokumente.
+    Sortierung, Paginierung, Faceted Search und Highlighting für Solr-Dokumente.
 
     Args:
         query (str): Solr query string (e.g., "*:*" for all documents)
@@ -145,19 +146,21 @@ async def search(
         rows (int): Number of results to return (default: 10)
         start (int): Offset for pagination (default: 0)
         facet_fields (Optional[List[str]]): Fields to facet on (e.g., ["category", "author"])
+        highlight_fields (Optional[List[str]]): Fields to highlight search terms in (e.g., ["title", "content"])
         ctx (Context): MCP context with access to lifespan context
 
     Returns:
-        Dict[str, Any]: Suchergebnisse (inkl. facet_counts wenn facet_fields angegeben) oder Fehlermeldung
+        Dict[str, Any]: Suchergebnisse (inkl. facet_counts und highlighting wenn angegeben) oder Fehlermeldung
     """
     try:
         facet_info = f" mit Facets: {facet_fields}" if facet_fields else ""
-        await ctx.info(f"Verarbeite search-Tool-Anfrage: {query}{facet_info}")
+        highlight_info = f" mit Highlighting: {highlight_fields}" if highlight_fields else ""
+        await ctx.info(f"Verarbeite search-Tool-Anfrage: {query}{facet_info}{highlight_info}")
 
         solr_client = ctx.request_context.lifespan_context.solr_client
         results = await solr_client.search(
             query=query, filter_query=filter_query, sort=sort, rows=rows, start=start,
-            facet_fields=facet_fields
+            facet_fields=facet_fields, highlight_fields=highlight_fields
         )
 
         return results
