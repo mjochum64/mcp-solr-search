@@ -1,10 +1,18 @@
 # Project Tasks: MCP-Server for Apache Solr (Focus: Document Search)
 
-## Current Status & Modernization Plan (Updated: 8. November 2025)
+## Current Status & Version History (Updated: 8. November 2025)
 
-**MCP Version**: Successfully upgraded to **MCP 1.21.0** ✅
+**Current Version**: **1.2.0** ✅
+**MCP Version**: **MCP 1.21.0** (2025-03-26 specification) ✅
 
-### Completed Modernization Tasks (November 2025)
+### Version 1.2.0 - Faceted Search Support (8. November 2025)
+- [x] Implemented Faceted Search for data exploration
+- [x] Added `facet_fields` parameter to search tool
+- [x] Automatic aggregation of field values with counts
+- [x] Unit tests and integration tests with live Solr
+- [x] Documentation and examples updated
+
+### Version 1.1.0 - MCP 1.21.0 Modernization (8. November 2025)
 - [x] Upgraded to MCP 1.21.0 with 2025-03-26 specification support
 - [x] Removed MCP 1.6.0 compatibility workarounds:
   - [x] Replaced global variables with proper lifespan context pattern
@@ -17,13 +25,16 @@
   - [x] Enhanced logging with ctx.info/debug/warning/error
 - [x] Updated all unit tests for new patterns
 - [x] Verified Streamable HTTP transport functionality
+- [x] Updated README.md with new MCP version and features
+- [x] Updated CLAUDE.md with modern patterns
+- [x] Tested Claude Desktop integration with MCP 1.21.0
 
-### Next Steps
-- [ ] Update README.md with new MCP version and features
-- [ ] Update CLAUDE.md with modern patterns
-- [ ] Test Claude Desktop integration with MCP 1.21.0
+### Next Steps (Priority Order)
+- [ ] Implement Highlighting support (show where search terms appear)
 - [ ] Consider implementing OAuth 2.1 authorization (new in 2025-03-26)
 - [ ] Evaluate JSON-RPC batching support
+- [ ] Multiple cores/collections support
+- [ ] Schema inspection tool
 
 ## 1. Project Setup (Completed: 26. April 2025)
 
@@ -59,7 +70,8 @@
 - [x] Create search functionality as MCP resources and tools
 - [x] Implement support for:
   - [x] Basic search functionality
-  - [ ] Complex queries (facets, highlights, etc.)
+  - [x] Faceted search (v1.2.0)
+  - [ ] Highlighting
   - [ ] Multiple cores/collections
   - [x] Document retrieval by ID
 - [x] Add error handling for Solr connection and query issues
@@ -85,7 +97,8 @@
 - [x] Create search tool with advanced parameters:
   - [x] Query parameter validation
   - [x] Support for filter queries, sorting, and pagination
-  - [ ] Support for facets and highlighting
+  - [x] Support for facets (v1.2.0)
+  - [ ] Support for highlighting
 - [x] Implement document retrieval tool:
   - [x] Support for retrieving by ID
   - [x] Support for field selection
