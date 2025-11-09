@@ -2,9 +2,25 @@
 
 ## Current Status & Version History (Updated: 9. November 2025)
 
-**Current Version**: **1.4.0** ✅
+**Current Version**: **1.5.0** ✅
 **MCP Version**: **MCP 1.21.0** (2025-06-18 specification) ✅
-**OAuth 2.1**: **Fully Implemented** ✅
+**OAuth 2.1**: **Fully Implemented with Auto-Refresh** ✅
+**Multi-Field Search**: **Enabled with edismax** ✅
+
+### Version 1.5.0 - edismax Multi-Field Search & OAuth Auto-Refresh (9. November 2025)
+- [x] edismax query parser for multi-field search across title^2, content^1.5, author, category
+- [x] Fixed issue where simple queries like "machine learning" found 0 documents
+- [x] Minimum match: 75% of search terms must match
+- [x] Field-specific queries (with ":") still work without edismax
+- [x] OAuth Auto-Refresh: Server-side automatic token management
+- [x] New OAUTH_AUTO_REFRESH, OAUTH_USERNAME, OAUTH_PASSWORD settings in .env
+- [x] Server retrieves OAuth token on startup using Password Grant flow
+- [x] Background task refreshes token every 4 minutes
+- [x] MCP tools automatically use server token when no access_token provided
+- [x] No manual token handling required in Claude Desktop
+- [x] 4 new tests for edismax (1 unit + 3 integration) - all passing ✅
+- [x] Total: 13 unit tests + 12 integration tests ✅
+- [x] New documentation: OAUTH_AUTO_REFRESH_TEST.md, OAUTH_TESTING.md, get-oauth-token.sh
 
 ### Version 1.4.0 - OAuth 2.1 Authorization (9. November 2025)
 - [x] Full OAuth 2.1 implementation with Keycloak integration

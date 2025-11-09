@@ -2,6 +2,54 @@
 
 This document tracks all significant changes to the MCP Server for Apache Solr.
 
+## [1.5.0] - 2025-11-09
+
+### Added
+- **edismax Multi-Field Search**: Solr queries now search across multiple fields automatically
+  - Implemented edismax query parser for text queries (queries without field specifiers)
+  - Multi-field search: title^2, content^1.5, author, category (with boost factors)
+  - Minimum match: 75% of search terms must match
+  - Field-specific queries (containing ":") still work without edismax
+  - Fixes issue where "machine learning" found 0 documents
+- **OAuth Auto-Refresh**: Server-side automatic OAuth token management
+  - New OAUTH_AUTO_REFRESH setting in .env (enables automatic token retrieval)
+  - New OAUTH_USERNAME and OAUTH_PASSWORD settings for server authentication
+  - Server retrieves OAuth token on startup using Password Grant flow
+  - Background task refreshes token every 4 minutes (tokens expire in 5 minutes)
+  - MCP tools automatically use server token when no access_token provided
+  - Eliminates need for manual token handling in Claude Desktop
+- **New Test Files**:
+  - test_search_tool_with_edismax (unit test)
+  - test_edismax_multi_field_search (integration test)
+  - test_edismax_python_search (integration test)
+  - test_field_specific_query_still_works (integration test)
+- **New Documentation**:
+  - OAUTH_AUTO_REFRESH_TEST.md - Complete testing guide for automatic OAuth
+  - OAUTH_TESTING.md - Manual OAuth testing guide
+  - get-oauth-token.sh - Helper script to retrieve OAuth tokens
+
+### Changed
+- SolrClient.search() now uses edismax for better search results
+- OAuth2Config dataclass extended with auto_refresh, username, password, token_endpoint
+- TokenValidator adds retrieve_token() and refresh_token() methods
+- AppContext extended with server_access_token, server_refresh_token, token_refresh_task
+- Lifespan manager retrieves initial OAuth token and starts refresh background task
+- validate_oauth_token() uses server token when no manual token provided
+- Integration test fixtures updated to include OAuth config
+
+### Fixed
+- **Search finds 0 documents**: edismax now enables multi-field search
+- Simple queries like "machine learning" now work correctly
+- "python" finds "Python Programming Guide"
+- "solr" finds "Introduction to Apache Solr"
+
+### Technical Details
+- edismax query parser with qf=title^2 content^1.5 author category
+- Token refresh interval: 240 seconds (4 minutes)
+- Token expiration: 300 seconds (5 minutes)
+- Background task: asyncio.create_task() for automatic refresh
+- Tests: 13 unit tests + 12 integration tests - all passing ✅
+
 ## [1.4.0] - 2025-11-09
 
 ### Added

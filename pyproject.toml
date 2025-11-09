@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "solr_mcp_server"
-version = "1.4.0"
+version = "1.5.0"
 description = "An MCP Server for Apache Solr document search"
 authors = [
     { name = "Martin Jochum", email = "mjochum64@gmail.com" }
