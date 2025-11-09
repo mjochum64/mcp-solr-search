@@ -3,7 +3,7 @@
 ## Current Status & Version History (Updated: 8. November 2025)
 
 **Current Version**: **1.3.0** ✅
-**MCP Version**: **MCP 1.21.0** (2025-03-26 specification) ✅
+**MCP Version**: **MCP 1.21.0** (2025-06-18 specification) ✅
 
 ### Version 1.3.0 - Highlighting Support (8. November 2025)
 - [x] Implemented Highlighting to show where search terms appear
@@ -20,7 +20,7 @@
 - [x] Documentation and examples updated
 
 ### Version 1.1.0 - MCP 1.21.0 Modernization (8. November 2025)
-- [x] Upgraded to MCP 1.21.0 with 2025-03-26 specification support
+- [x] Upgraded to MCP 1.21.0 with 2025-06-18 specification support
 - [x] Removed MCP 1.6.0 compatibility workarounds:
   - [x] Replaced global variables with proper lifespan context pattern
   - [x] Implemented modern lifespan context manager with AppContext dataclass
@@ -37,11 +37,299 @@
 - [x] Tested Claude Desktop integration with MCP 1.21.0
 
 ### Next Steps (Priority Order)
-- [ ] Consider implementing OAuth 2.1 authorization (new in 2025-03-26)
+- [ ] Implement OAuth 2.1 authorization (mandatory in 2025-06-18 for production)
+- [ ] Implement Resource Indicators (RFC 8707) for security
+- [ ] Add structured tool outputs with Pydantic schemas
 - [ ] Evaluate JSON-RPC batching support
 - [ ] Multiple cores/collections support
 - [ ] Schema inspection tool
 - [ ] Advanced highlighting configuration options
+
+---
+
+## MCP Spec 2025-06-18 Migration Roadmap
+
+### ✅ Current Status (as of 8. November 2025)
+
+**Protocol Version:** 2025-06-18 (latest)
+**SDK Version:** MCP 1.21.0
+**Compatibility:** ✅ Fully compatible - SDK supports 2024-11-05, 2025-03-26, and 2025-06-18
+
+**Documentation Status:**
+- ✅ CLAUDE.md updated to 2025-06-18
+- ✅ README.md updated to 2025-06-18
+- ✅ TASK.md updated to 2025-06-18
+- ✅ CHANGELOG.md updated with v1.3.1 entry
+
+### 📋 Migration Phases
+
+#### Phase 1: Documentation Update (✅ COMPLETED - 8. Nov 2025)
+**Estimated Effort:** ~30 minutes
+**Status:** ✅ Done
+
+**Tasks:**
+- [x] Update CLAUDE.md specification references
+- [x] Update README.md specification references
+- [x] Update TASK.md with new spec version
+- [x] Add CHANGELOG.md entry for v1.3.1
+- [x] Update "Next Steps" with new mandatory features
+
+**Result:** All documentation now references 2025-06-18 specification.
+
+---
+
+#### Phase 2: OAuth 2.1 Authorization Implementation (❌ PENDING)
+**Estimated Effort:** 8-16 hours
+**Priority:** 🔴 High (mandatory for production deployment)
+**Required for:** Production-ready public server
+
+**Background:**
+- 2025-03-26: OAuth was optional
+- 2025-06-18: OAuth 2.1 is **mandatory** for production
+- Current status: Local development server without auth
+
+**Tasks:**
+
+##### 2.1 OAuth Infrastructure Setup (~4 hours)
+- [ ] Configure OAuth 2.1 provider (choose: Auth0, Keycloak, or custom)
+- [ ] Set up OAuth endpoints in environment
+- [ ] Implement OAuth2Config in mcp_server.py
+- [ ] Add OAuth environment variables to .env.example
+- [ ] Document OAuth setup process in README.md
+
+**Example Implementation:**
+```python
+# src/server/mcp_server.py
+from mcp.client.auth.oauth2 import OAuth2Config
+
+# OAuth Configuration (only for production)
+if os.getenv("ENABLE_OAUTH", "false").lower() == "true":
+    oauth_config = OAuth2Config(
+        authorization_endpoint=os.getenv("OAUTH_AUTH_ENDPOINT"),
+        token_endpoint=os.getenv("OAUTH_TOKEN_ENDPOINT"),
+        client_id=os.getenv("OAUTH_CLIENT_ID"),
+        client_secret=os.getenv("OAUTH_CLIENT_SECRET"),
+        scopes=["solr:read", "solr:search"]
+    )
+```
+
+##### 2.2 Authorization Middleware (~3 hours)
+- [ ] Implement authorization checks in tool functions
+- [ ] Add token validation middleware
+- [ ] Implement permission-based access control
+- [ ] Add authorization error handling
+
+**Example Implementation:**
+```python
+@app.tool()
+async def search(query: str, ctx: Context = None) -> Dict[str, Any]:
+    # Authorization check
+    if not await is_authorized(ctx, "solr:search"):
+        return {"error": "Unauthorized: Missing solr:search permission"}
+
+    # Existing search logic...
+```
+
+##### 2.3 Testing (~2 hours)
+- [ ] Create OAuth mock for unit tests
+- [ ] Add authorization unit tests
+- [ ] Test unauthorized access scenarios
+- [ ] Integration tests with OAuth flow
+- [ ] Security tests for token validation
+
+##### 2.4 Documentation (~1 hour)
+- [ ] OAuth setup guide in README.md
+- [ ] Environment variables documentation
+- [ ] Security best practices
+- [ ] Troubleshooting guide
+
+**Dependencies:**
+- OAuth provider (Auth0, Keycloak, etc.)
+- SSL/TLS certificates for production
+- Updated environment configuration
+
+**Deliverables:**
+- OAuth 2.1 authentication flow
+- Token-based authorization
+- Documented setup process
+- Comprehensive tests
+
+---
+
+#### Phase 3: Resource Indicators (RFC 8707) (~2-3 hours)
+**Estimated Effort:** 2-3 hours
+**Priority:** 🟡 Medium (security enhancement)
+**Required for:** Preventing token theft by malicious servers
+
+**Background:**
+- RFC 8707: OAuth 2.0 Resource Indicators
+- Prevents malicious MCP servers from obtaining access tokens
+- MCP Clients must implement this when our server acts as client
+
+**Tasks:**
+
+##### 3.1 Implementation (~2 hours)
+- [ ] Implement Resource Indicators in OAuth flow
+- [ ] Add resource parameter to token requests
+- [ ] Validate resource indicators in token responses
+- [ ] Update OAuth configuration
+
+##### 3.2 Testing & Documentation (~1 hour)
+- [ ] Unit tests for Resource Indicators
+- [ ] Security tests for token scope validation
+- [ ] Document Resource Indicators usage
+
+**Note:** Only relevant if we act as MCP Client to other servers.
+
+---
+
+#### Phase 4: Structured Tool Outputs (~4-6 hours)
+**Estimated Effort:** 4-6 hours
+**Priority:** 🟢 Low (quality improvement, not mandatory)
+**Required for:** Better type safety and API clarity
+
+**Background:**
+- 2025-06-18 introduces structured tool outputs
+- Tools can define response schemas with Pydantic
+- Better validation and documentation
+
+**Tasks:**
+
+##### 4.1 Response Models (~2 hours)
+- [ ] Create Pydantic models for search responses
+- [ ] Create model for get_document responses
+- [ ] Add response models to models.py
+- [ ] Add validation and examples
+
+**Example Implementation:**
+```python
+# src/server/models.py
+from pydantic import BaseModel, Field
+
+class SearchResponse(BaseModel):
+    """Structured response for search tool."""
+    responseHeader: Dict[str, Any] = Field(..., description="Solr response header")
+    response: Dict[str, Any] = Field(..., description="Search results")
+    facet_counts: Optional[Dict[str, Any]] = Field(None, description="Facet aggregations")
+    highlighting: Optional[Dict[str, Any]] = Field(None, description="Highlighted snippets")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "responseHeader": {"status": 0, "QTime": 5},
+                "response": {"numFound": 10, "docs": [...]},
+                "highlighting": {"doc1": {"title": ["<em>Python</em>"]}}
+            }
+        }
+```
+
+##### 4.2 Tool Updates (~1 hour)
+- [ ] Update search tool with structured output
+- [ ] Update get_document tool with structured output
+- [ ] Add output schemas to tool annotations
+
+##### 4.3 Testing (~1 hour)
+- [ ] Update unit tests for structured outputs
+- [ ] Validation tests for response schemas
+- [ ] Integration tests
+
+##### 4.4 Documentation (~1 hour)
+- [ ] Document response schemas
+- [ ] Update API examples
+- [ ] Add schema to tool descriptions
+
+**Deliverables:**
+- Type-safe tool responses
+- Self-documenting API
+- Better error detection
+
+---
+
+#### Phase 5: JSON-RPC Batching Support (~3-4 hours)
+**Estimated Effort:** 3-4 hours
+**Priority:** 🟢 Low (performance optimization)
+**Required for:** High-performance scenarios with multiple requests
+
+**Background:**
+- 2025-06-18 adds support for JSON-RPC batching
+- Multiple requests can be sent in single HTTP call
+- Reduces network overhead
+
+**Tasks:**
+
+##### 5.1 Implementation (~2 hours)
+- [ ] Enable batch request handling
+- [ ] Implement parallel processing of batched requests
+- [ ] Add batch response formatting
+
+##### 5.2 Testing (~1 hour)
+- [ ] Unit tests for batch requests
+- [ ] Performance tests
+- [ ] Error handling tests
+
+##### 5.3 Documentation (~1 hour)
+- [ ] Batch request examples
+- [ ] Performance guidelines
+
+---
+
+### 📊 Migration Timeline
+
+| Phase | Priority | Effort | Status | Target Date |
+|-------|----------|--------|--------|-------------|
+| Phase 1: Documentation | ✅ Mandatory | 0.5h | ✅ Done | Nov 8, 2025 |
+| Phase 2: OAuth 2.1 | 🔴 High | 8-16h | ❌ Pending | TBD (before production) |
+| Phase 3: Resource Indicators | 🟡 Medium | 2-3h | ❌ Pending | TBD (with OAuth) |
+| Phase 4: Structured Outputs | 🟢 Low | 4-6h | ❌ Pending | TBD (optional) |
+| Phase 5: JSON-RPC Batching | 🟢 Low | 3-4h | ❌ Pending | TBD (optional) |
+
+**Total Effort:** 17.5 - 33.5 hours (excluding optional phases)
+
+---
+
+### 🎯 Recommendations
+
+#### For Local Development / Testing:
+✅ **Current setup is sufficient!**
+- 2025-06-18 spec is fully supported by SDK
+- OAuth not required for local usage
+- No breaking changes needed
+
+#### For Production Deployment:
+🔴 **Phase 2 (OAuth 2.1) is MANDATORY**
+- Required by 2025-06-18 specification
+- Must be implemented before public deployment
+- Recommended timeline: 2-3 weeks before go-live
+
+#### Optional Enhancements:
+🟢 **Phase 4 (Structured Outputs)**
+- Recommended for API quality
+- Can be done incrementally
+- Good for long-term maintainability
+
+🟢 **Phase 3 & 5**
+- Only if specific security/performance needs
+- Can be deferred
+
+---
+
+### 📚 Additional Resources
+
+**MCP Specification:**
+- Latest Spec: https://modelcontextprotocol.io/specification/2025-06-18
+- OAuth Guide: https://modelcontextprotocol.io/specification/2025-06-18/authorization
+- RFC 8707: https://datatracker.ietf.org/doc/html/rfc8707
+
+**SDK Documentation:**
+- Python SDK: https://github.com/modelcontextprotocol/python-sdk
+- OAuth Examples: See SDK examples/oauth
+
+**OAuth Providers:**
+- Auth0: https://auth0.com/
+- Keycloak: https://www.keycloak.org/
+- Okta: https://www.okta.com/
+
+---
 
 ## 1. Project Setup (Completed: 26. April 2025)
 

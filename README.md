@@ -31,7 +31,7 @@ The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/pytho
 - Python 3.11+
 - Docker and Docker Compose (for the integrated Solr environment)
 - `uv` package manager (recommended)
-- MCP 1.21.0+ (fully compatible with 2025-03-26 specification)
+- MCP 1.21.0+ (fully compatible with 2025-06-18 specification)
 
 ## Installation
 
@@ -73,7 +73,7 @@ The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/pytho
 
 ## MCP 1.21.0 Modern Features
 
-This project uses the latest MCP 1.21.0 SDK with full support for the 2025-03-26 specification:
+This project uses the latest MCP 1.21.0 SDK with full support for the 2025-06-18 specification:
 
 ✅ **Lifespan Context Manager**: Type-safe dependency injection with `AppContext` dataclass
 ✅ **Streamable HTTP Transport**: Native HTTP support without external workarounds

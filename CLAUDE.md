@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an MCP (Model Context Protocol) Server for Apache Solr Document Search that bridges LLMs with Solr search capabilities. The project has been fully modernized to **MCP 1.21.0** (2025-03-26 specification), featuring:
+This is an MCP (Model Context Protocol) Server for Apache Solr Document Search that bridges LLMs with Solr search capabilities. The project has been fully modernized to **MCP 1.21.0** (2025-06-18 specification), featuring:
 - Modern lifespan context management
 - Streamable HTTP transport (native support)
 - Tool annotations for enhanced client integration

@@ -2,6 +2,18 @@
 
 Dieses Dokument dokumentiert alle wichtigen Änderungen am MCP-Server für Apache Solr.
 
+## [1.3.1] - 2025-11-08
+
+### Geändert
+- **MCP Specification Update**: Dokumentation aktualisiert auf MCP Spec 2025-06-18 (neueste Version)
+- CLAUDE.md, README.md, TASK.md auf 2025-06-18 Spec aktualisiert
+- "Next Steps" erweitert um OAuth 2.1 und Resource Indicators (nun mandatory für Production)
+
+### Technische Details
+- MCP SDK 1.21.0 unterstützt bereits vollständig 2025-06-18 Spec ✅
+- Keine Code-Änderungen notwendig - nur Dokumentations-Update
+- Backward-kompatibel mit 2025-03-26 und 2024-11-05
+
 ## [1.3.0] - 2025-11-08
 
 ### Hinzugefügt
