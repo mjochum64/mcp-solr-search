@@ -1,9 +1,30 @@
 # Project Tasks: MCP-Server for Apache Solr (Focus: Document Search)
 
-## Current Status & Version History (Updated: 8. November 2025)
+## Current Status & Version History (Updated: 9. November 2025)
 
-**Current Version**: **1.3.1** ✅
+**Current Version**: **1.4.0** ✅
 **MCP Version**: **MCP 1.21.0** (2025-06-18 specification) ✅
+**OAuth 2.1**: **Fully Implemented** ✅
+
+### Version 1.4.0 - OAuth 2.1 Authorization (9. November 2025)
+- [x] Full OAuth 2.1 implementation with Keycloak integration
+- [x] OAuth2Config dataclass for configuration management
+- [x] TokenValidator class with JWKS and introspection support
+- [x] JWKS caching (1 hour) for performance optimization
+- [x] Fine-grained scope checking (solr:search, solr:read, solr:write, solr:admin)
+- [x] Custom exception classes (TokenMissingError, TokenInvalidError, InsufficientScopesError)
+- [x] Docker Compose configuration for Keycloak + PostgreSQL
+- [x] Automated setup script (setup-keycloak.sh) for realm/client/scope configuration
+- [x] Automated OAuth flow testing script (test-keycloak.sh)
+- [x] Extended `search` tool with `access_token` parameter
+- [x] Extended `get_document` tool with `access_token` parameter
+- [x] OAuth validation middleware with clear error messages
+- [x] 14 new OAuth unit tests (test_oauth.py) - all passing ✅
+- [x] 10 new integration tests with live Keycloak (test_oauth_integration.py) - all passing ✅
+- [x] Total: 36 tests passing (26 unit + 10 integration)
+- [x] Complete OAuth 2.1 implementation guide (docs/OAUTH_GUIDE.md - 541 lines)
+- [x] Step-by-step Keycloak setup guide (docs/KEYCLOAK_SETUP_GUIDE.md - 404 lines)
+- [x] Comprehensive troubleshooting guide (docs/OAUTH_TROUBLESHOOTING.md - 465 lines)
 
 ### Version 1.3.1 - MCP Spec Update (8. November 2025)
 - [x] Updated documentation to MCP Specification 2025-06-18 (latest)
@@ -310,7 +331,7 @@ class SearchResponse(BaseModel):
 | Phase | Priority | Effort | Status | Target Date |
 |-------|----------|--------|--------|-------------|
 | Phase 1: Documentation | ✅ Mandatory | 0.5h | ✅ Done | Nov 8, 2025 |
-| Phase 2: OAuth 2.1 | 🔴 High | 8-16h | ❌ Pending | TBD (before production) |
+| Phase 2: OAuth 2.1 | 🔴 High | 8-16h | ✅ Done | Nov 9, 2025 |
 | Phase 3: Resource Indicators | 🟡 Medium | 2-3h | ❌ Pending | TBD (with OAuth) |
 | Phase 4: Structured Outputs | 🟢 Low | 4-6h | ❌ Pending | TBD (optional) |
 | Phase 5: JSON-RPC Batching | 🟢 Low | 3-4h | ❌ Pending | TBD (optional) |

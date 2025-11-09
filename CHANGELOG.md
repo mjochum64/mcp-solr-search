@@ -2,6 +2,47 @@
 
 This document tracks all significant changes to the MCP Server for Apache Solr.
 
+## [1.4.0] - 2025-11-09
+
+### Added
+- **OAuth 2.1 Authorization**: Full implementation with Keycloak integration
+  - OAuth2Config dataclass for configuration management
+  - TokenValidator class with JWKS and introspection support
+  - JWKS caching (1 hour) for performance optimization
+  - Fine-grained scope checking (solr:search, solr:read, solr:write, solr:admin)
+  - Custom exception classes (TokenMissingError, TokenInvalidError, InsufficientScopesError)
+- **Keycloak Integration**:
+  - Docker Compose configuration for Keycloak + PostgreSQL
+  - Automated setup script (setup-keycloak.sh) for realm/client/scope configuration
+  - Automated OAuth flow testing script (test-keycloak.sh)
+- **MCP Tools Enhancement**:
+  - Extended `search` tool with `access_token` parameter
+  - Extended `get_document` tool with `access_token` parameter
+  - OAuth validation middleware with clear error messages
+- **Comprehensive Testing**:
+  - 14 new OAuth unit tests (test_oauth.py) - all passing ✅
+  - 10 new integration tests with live Keycloak (test_oauth_integration.py) - all passing ✅
+  - Total: 36 tests passing (26 unit + 10 integration)
+- **Documentation**:
+  - Complete OAuth 2.1 implementation guide (docs/OAUTH_GUIDE.md - 541 lines)
+  - Step-by-step Keycloak setup guide (docs/KEYCLOAK_SETUP_GUIDE.md - 404 lines)
+  - Comprehensive troubleshooting guide (docs/OAUTH_TROUBLESHOOTING.md - 465 lines)
+  - OAuth usage examples in README.md
+
+### Changed
+- MCP server AppContext now includes oauth_config and token_validator
+- Lifespan manager initializes OAuth components on startup
+- .env.example extended with OAuth 2.1 configuration variables
+- README.md updated with OAuth implementation status and usage examples
+- TASK.md updated with Phase 2 completion status
+
+### Technical Details
+- OAuth Provider: Keycloak 23.0
+- Token Validation: Both JWKS (fast) and introspection (authoritative) methods
+- Security: Complies with MCP Spec 2025-06-18 OAuth 2.1 requirements
+- Backward Compatible: OAuth can be disabled for local development (ENABLE_OAUTH=false)
+- Production Ready: Full OAuth 2.1 implementation for secure production deployment
+
 ## [1.3.1] - 2025-11-08
 
 ### Changed
@@ -112,6 +153,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ## MCP Specification Versions
 
+- v1.4.0: MCP Spec 2025-06-18 (OAuth 2.1 compliant)
 - v1.3.1: MCP Spec 2025-06-18
 - v1.3.0: MCP Spec 2025-06-18
 - v1.2.0: MCP Spec 2025-03-26
