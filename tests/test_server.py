@@ -40,8 +40,26 @@ def mock_solr_client():
 @pytest.fixture
 def mock_context(mock_solr_client):
     """Create a mock context with the solr client"""
+    from src.server.oauth import OAuth2Config
+
     context = AsyncMock()
     context.request_context.lifespan_context.solr_client = mock_solr_client
+
+    # Create OAuth config with OAuth disabled for tests
+    oauth_config = OAuth2Config(
+        enabled=False,
+        provider="keycloak",
+        keycloak_url="http://localhost:8080",
+        realm="solr-mcp",
+        client_id="solr-search-server",
+        client_secret="test-secret",
+        required_scopes=["solr:search", "solr:read"],
+        token_validation_endpoint="http://localhost:8080/realms/solr-mcp/protocol/openid-connect/token/introspect",
+        jwks_endpoint="http://localhost:8080/realms/solr-mcp/protocol/openid-connect/certs",
+    )
+    context.request_context.lifespan_context.oauth_config = oauth_config
+    context.request_context.lifespan_context.token_validator = None
+
     # Mock async context methods
     context.info = AsyncMock()
     context.debug = AsyncMock()
