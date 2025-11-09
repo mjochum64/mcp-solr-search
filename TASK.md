@@ -43,7 +43,7 @@
 - [x] Tested Claude Desktop integration with MCP 1.21.0
 
 ### Next Steps (Priority Order)
-- [ ] Implement OAuth 2.1 authorization (mandatory in 2025-06-18 for production)
+- [x] Implement OAuth 2.1 authorization (mandatory in 2025-06-18 for production) ✅ **COMPLETED**
 - [ ] Implement Resource Indicators (RFC 8707) for security
 - [ ] Add structured tool outputs with Pydantic schemas
 - [ ] Evaluate JSON-RPC batching support
@@ -84,81 +84,107 @@
 
 ---
 
-#### Phase 2: OAuth 2.1 Authorization Implementation (❌ PENDING)
-**Estimated Effort:** 8-16 hours
+#### Phase 2: OAuth 2.1 Authorization Implementation (✅ COMPLETED - 9. Nov 2025)
+**Estimated Effort:** 8-16 hours (Actual: ~12 hours)
 **Priority:** 🔴 High (mandatory for production deployment)
 **Required for:** Production-ready public server
 
 **Background:**
 - 2025-03-26: OAuth was optional
 - 2025-06-18: OAuth 2.1 is **mandatory** for production
-- Current status: Local development server without auth
+- Status: ✅ Fully implemented with Keycloak
+
+**Implementation Summary:**
+- OAuth 2.1 authentication with Keycloak
+- JWKS-based local validation (fast, offline)
+- Token introspection validation (authoritative)
+- Fine-grained scope checking (solr:search, solr:read, solr:write, solr:admin)
+- Automated Keycloak setup scripts
+- 14 unit tests + 10 integration tests ✅ all passing
+- Comprehensive documentation and troubleshooting guide
 
 **Tasks:**
 
-##### 2.1 OAuth Infrastructure Setup (~4 hours)
-- [ ] Configure OAuth 2.1 provider (choose: Auth0, Keycloak, or custom)
-- [ ] Set up OAuth endpoints in environment
-- [ ] Implement OAuth2Config in mcp_server.py
-- [ ] Add OAuth environment variables to .env.example
-- [ ] Document OAuth setup process in README.md
+##### 2.1 OAuth Infrastructure Setup (~4 hours) ✅ COMPLETED
+- [x] Configure OAuth 2.1 provider (Keycloak chosen)
+- [x] Set up OAuth endpoints in environment (KEYCLOAK_URL, TOKEN_VALIDATION_ENDPOINT, JWKS_ENDPOINT)
+- [x] Implement OAuth2Config in src/server/oauth.py
+- [x] Add OAuth environment variables to .env.example
+- [x] Document OAuth setup process in README.md
+- [x] Create Docker Compose configuration for Keycloak + PostgreSQL
+- [x] Create automated setup script (setup-keycloak.sh)
+- [x] Create automated test script (test-keycloak.sh)
 
-**Example Implementation:**
+**Actual Implementation:**
+```python
+# src/server/oauth.py
+@dataclass
+class OAuth2Config:
+    enabled: bool
+    provider: str
+    keycloak_url: str
+    realm: str
+    client_id: str
+    client_secret: str
+    required_scopes: List[str]
+    token_validation_endpoint: str
+    jwks_endpoint: str
+```
+
+##### 2.2 Authorization Middleware (~3 hours) ✅ COMPLETED
+- [x] Implement authorization checks in tool functions
+- [x] Add token validation logic (JWKS + introspection)
+- [x] Implement scope checking for permission-based access
+- [x] Add authorization error handling (custom exceptions)
+- [x] Extend search tool with access_token parameter
+- [x] Extend get_document tool with access_token parameter
+- [x] Add validate_oauth_token() helper function
+
+**Actual Implementation:**
 ```python
 # src/server/mcp_server.py
-from mcp.client.auth.oauth2 import OAuth2Config
-
-# OAuth Configuration (only for production)
-if os.getenv("ENABLE_OAUTH", "false").lower() == "true":
-    oauth_config = OAuth2Config(
-        authorization_endpoint=os.getenv("OAUTH_AUTH_ENDPOINT"),
-        token_endpoint=os.getenv("OAUTH_TOKEN_ENDPOINT"),
-        client_id=os.getenv("OAUTH_CLIENT_ID"),
-        client_secret=os.getenv("OAUTH_CLIENT_SECRET"),
-        scopes=["solr:read", "solr:search"]
-    )
+async def validate_oauth_token(ctx: Context, token: Optional[str] = None):
+    if not app_context.oauth_config.enabled:
+        return None
+    if not token:
+        raise TokenMissingError("No access token provided")
+    token_data = await app_context.token_validator.validate_token(token)
+    if not app_context.token_validator.check_scopes(token_data):
+        raise InsufficientScopesError("Missing required scopes")
+    return token_data
 ```
 
-##### 2.2 Authorization Middleware (~3 hours)
-- [ ] Implement authorization checks in tool functions
-- [ ] Add token validation middleware
-- [ ] Implement permission-based access control
-- [ ] Add authorization error handling
+##### 2.3 Testing (~2 hours) ✅ COMPLETED
+- [x] Create OAuth mock for unit tests
+- [x] Add 14 OAuth unit tests (all passing ✅)
+- [x] Test unauthorized access scenarios
+- [x] Integration tests with real Keycloak (10 tests, all passing ✅)
+- [x] Security tests for token validation (invalid, expired, missing scopes)
+- [x] Fixed existing unit tests to work with OAuth disabled
 
-**Example Implementation:**
-```python
-@app.tool()
-async def search(query: str, ctx: Context = None) -> Dict[str, Any]:
-    # Authorization check
-    if not await is_authorized(ctx, "solr:search"):
-        return {"error": "Unauthorized: Missing solr:search permission"}
+**Test Results:**
+- 14 unit tests (test_oauth.py) ✅
+- 10 integration tests (test_oauth_integration.py) ✅
+- 26 total unit tests passing
+- 100% test coverage for OAuth components
 
-    # Existing search logic...
-```
+##### 2.4 Documentation (~1 hour) ✅ COMPLETED
+- [x] OAuth setup guide in README.md
+- [x] Complete OAuth 2.1 implementation guide (docs/OAUTH_GUIDE.md)
+- [x] Step-by-step Keycloak setup (docs/KEYCLOAK_SETUP_GUIDE.md)
+- [x] OAuth troubleshooting guide (docs/OAUTH_TROUBLESHOOTING.md)
+- [x] Environment variables documentation
+- [x] Security best practices
+- [x] Usage examples with OAuth tokens
 
-##### 2.3 Testing (~2 hours)
-- [ ] Create OAuth mock for unit tests
-- [ ] Add authorization unit tests
-- [ ] Test unauthorized access scenarios
-- [ ] Integration tests with OAuth flow
-- [ ] Security tests for token validation
-
-##### 2.4 Documentation (~1 hour)
-- [ ] OAuth setup guide in README.md
-- [ ] Environment variables documentation
-- [ ] Security best practices
-- [ ] Troubleshooting guide
-
-**Dependencies:**
-- OAuth provider (Auth0, Keycloak, etc.)
-- SSL/TLS certificates for production
-- Updated environment configuration
-
-**Deliverables:**
-- OAuth 2.1 authentication flow
-- Token-based authorization
-- Documented setup process
-- Comprehensive tests
+**Deliverables (All Completed):**
+- ✅ OAuth 2.1 authentication flow with Keycloak
+- ✅ Token-based authorization with JWKS and introspection
+- ✅ Automated Keycloak setup scripts
+- ✅ Comprehensive test suite (24 tests)
+- ✅ Complete documentation set (3 guides)
+- ✅ Docker Compose configuration for local dev
+- ✅ Troubleshooting and diagnostics tools
 
 ---
 

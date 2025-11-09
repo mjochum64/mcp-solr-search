@@ -164,8 +164,9 @@ For step-by-step manual configuration through the Keycloak web UI, see [docs/KEY
 
 - [docs/OAUTH_GUIDE.md](docs/OAUTH_GUIDE.md) - Complete OAuth 2.1 implementation guide
 - [docs/KEYCLOAK_SETUP_GUIDE.md](docs/KEYCLOAK_SETUP_GUIDE.md) - Step-by-step Keycloak setup
+- [docs/OAUTH_TROUBLESHOOTING.md](docs/OAUTH_TROUBLESHOOTING.md) - OAuth troubleshooting and diagnostics
 
-**Note**: OAuth implementation in the MCP server code is currently in progress. Set `ENABLE_OAUTH=false` in your `.env` file until the implementation is complete.
+**OAuth Implementation Status**: ✅ Fully implemented and tested (14 unit tests + 10 integration tests). OAuth can be enabled by setting `ENABLE_OAUTH=true` in your `.env` file.
 
 ### Running the MCP Server
 
@@ -254,6 +255,49 @@ result = await session.call_tool(
 # Response includes highlighting with <em> tags around matched terms
 # e.g., {"doc2": {"title": ["<em>Machine</em> Learning Basics"], ...}}
 ```
+
+### Example: Using OAuth 2.1 Authentication
+
+When OAuth is enabled (`ENABLE_OAUTH=true`), all tool calls require a valid access token:
+
+```python
+# Step 1: Get access token from Keycloak
+import httpx
+
+async with httpx.AsyncClient() as client:
+    response = await client.post(
+        "http://localhost:8080/realms/solr-mcp/protocol/openid-connect/token",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data={
+            "client_id": "solr-search-server",
+            "client_secret": "your-client-secret",
+            "username": "testuser",
+            "password": "testpassword",
+            "grant_type": "password",
+            "scope": "solr:search solr:read",
+        },
+    )
+    token_data = response.json()
+    access_token = token_data["access_token"]
+
+# Step 2: Use the token in tool calls
+result = await session.call_tool(
+    "search",
+    arguments={
+        "query": "machine learning",
+        "rows": 10,
+        "access_token": access_token  # Include the token
+    }
+)
+```
+
+**OAuth Features:**
+- **Token Validation**: Both JWKS (fast, offline) and introspection (authoritative)
+- **Scope Checking**: Fine-grained permissions (`solr:search`, `solr:read`, `solr:write`, `solr:admin`)
+- **JWKS Caching**: 1-hour cache to reduce network calls
+- **Comprehensive Error Handling**: Clear error messages for missing/invalid tokens
+
+**For local development without OAuth**, simply set `ENABLE_OAUTH=false` in your `.env` file.
 
 ### Example: Using the document retrieval tool
 
