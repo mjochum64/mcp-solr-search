@@ -131,6 +131,42 @@ This will:
 3. Load 10 sample documents with various fields
 4. Configure everything for immediate use with the MCP server
 
+### Setting up OAuth 2.1 with Keycloak (Optional)
+
+The MCP server supports OAuth 2.1 authentication using Keycloak. This is required for production deployments with the MCP 2025-06-18 specification.
+
+**Quick Setup (Automated)**:
+
+```bash
+# Start Keycloak and PostgreSQL containers
+docker-compose up -d keycloak
+
+# Wait for Keycloak to be ready (~60 seconds)
+# Then run the automated setup script
+./setup-keycloak.sh
+
+# Test the OAuth flow
+./test-keycloak.sh <CLIENT_SECRET>
+```
+
+The automated setup script will:
+1. Create the "solr-mcp" realm
+2. Create the "solr-search-server" client
+3. Configure OAuth scopes (solr:search, solr:read, solr:write, solr:admin)
+4. Create a test user (testuser/testpassword)
+5. Display the client secret for your `.env` file
+
+**Manual Setup**:
+
+For step-by-step manual configuration through the Keycloak web UI, see [docs/KEYCLOAK_SETUP_GUIDE.md](docs/KEYCLOAK_SETUP_GUIDE.md).
+
+**Documentation**:
+
+- [docs/OAUTH_GUIDE.md](docs/OAUTH_GUIDE.md) - Complete OAuth 2.1 implementation guide
+- [docs/KEYCLOAK_SETUP_GUIDE.md](docs/KEYCLOAK_SETUP_GUIDE.md) - Step-by-step Keycloak setup
+
+**Note**: OAuth implementation in the MCP server code is currently in progress. Set `ENABLE_OAUTH=false` in your `.env` file until the implementation is complete.
+
 ### Running the MCP Server
 
 You can run the MCP server using the provided wrapper script which supports different modes:
