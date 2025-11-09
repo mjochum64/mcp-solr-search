@@ -1,6 +1,7 @@
 """
 Tests for the Solr MCP Server functionality.
 """
+
 import json
 import os
 import pytest
@@ -9,6 +10,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 # Add the src directory to the path so we can import from it
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 import httpx
@@ -27,12 +29,16 @@ def mock_solr_client():
         "response": {
             "numFound": 1,
             "start": 0,
-            "docs": [{"id": "doc1", "title": ["Introduction to Apache Solr"]}]
-        }
+            "docs": [{"id": "doc1", "title": ["Introduction to Apache Solr"]}],
+        },
     }
     client.search.return_value = search_result
     # Mock get_document method
-    doc_result = {"id": "doc1", "title": ["Introduction to Apache Solr"], "author": ["John Smith"]}
+    doc_result = {
+        "id": "doc1",
+        "title": ["Introduction to Apache Solr"],
+        "author": ["John Smith"],
+    }
     client.get_document.return_value = doc_result
     return client
 
@@ -88,12 +94,7 @@ async def test_search_tool(mock_context):
     """Test the search tool with parameters"""
     # Call the tool function with new signature: query, filter_query, sort, rows, start, ctx
     result = await search(
-        query="*:*",
-        filter_query=None,
-        sort=None,
-        rows=10,
-        start=0,
-        ctx=mock_context
+        query="*:*", filter_query=None, sort=None, rows=10, start=0, ctx=mock_context
     )
 
     # Check the result
@@ -110,11 +111,7 @@ async def test_search_tool(mock_context):
 async def test_get_document_tool(mock_context):
     """Test the get_document tool"""
     # Call the tool function with new signature: id, fields, ctx
-    result = await get_document(
-        id="doc1",
-        fields=["title", "author"],
-        ctx=mock_context
-    )
+    result = await get_document(id="doc1", fields=["title", "author"], ctx=mock_context)
 
     if "id" not in result:
         print(f"WARN: get_document lieferte kein id-Feld: {result}")
@@ -133,32 +130,35 @@ async def test_get_document_tool(mock_context):
 async def test_solr_client_search():
     mock_response = AsyncMock()
     mock_response.raise_for_status = AsyncMock()
-    mock_response.json = AsyncMock(return_value={
-        "responseHeader": {"status": 0},
-        "response": {
-            "numFound": 2,
-            "start": 0,
-            "docs": [
-                {"id": "doc1", "title": "First Document"},
-                {"id": "doc2", "title": "Second Document"}
-            ]
+    mock_response.json = AsyncMock(
+        return_value={
+            "responseHeader": {"status": 0},
+            "response": {
+                "numFound": 2,
+                "start": 0,
+                "docs": [
+                    {"id": "doc1", "title": "First Document"},
+                    {"id": "doc2", "title": "Second Document"},
+                ],
+            },
         }
-    })
+    )
+
     async def get(*args, **kwargs):
         return mock_response
+
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value.get = get
     with patch("httpx.AsyncClient", return_value=mock_client):
         client = SolrClient(
-            base_url="http://example.com/solr",
-            collection="test_collection"
+            base_url="http://example.com/solr", collection="test_collection"
         )
         result = await client.search(
             query="test",
             filter_query="field:value",
             sort="score desc",
             rows=10,
-            start=0
+            start=0,
         )
         assert result["response"]["numFound"] == 2
         assert len(result["response"]["docs"]) == 2
@@ -170,24 +170,31 @@ async def test_solr_client_search():
 async def test_solr_client_get_document():
     mock_response = AsyncMock()
     mock_response.raise_for_status = AsyncMock()
-    mock_response.json = AsyncMock(return_value={
-        "responseHeader": {"status": 0},
-        "response": {
-            "numFound": 1,
-            "start": 0,
-            "docs": [
-                {"id": "doc1", "title": "Test Document", "content": "This is a test"}
-            ]
+    mock_response.json = AsyncMock(
+        return_value={
+            "responseHeader": {"status": 0},
+            "response": {
+                "numFound": 1,
+                "start": 0,
+                "docs": [
+                    {
+                        "id": "doc1",
+                        "title": "Test Document",
+                        "content": "This is a test",
+                    }
+                ],
+            },
         }
-    })
+    )
+
     async def get(*args, **kwargs):
         return mock_response
+
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value.get = get
     with patch("httpx.AsyncClient", return_value=mock_client):
         client = SolrClient(
-            base_url="http://example.com/solr",
-            collection="test_collection"
+            base_url="http://example.com/solr", collection="test_collection"
         )
         result = await client.get_document(doc_id="doc1", fields=["id", "title"])
         assert result["id"] == "doc1"
@@ -204,16 +211,18 @@ async def test_search_tool_with_facets(mock_context):
         "response": {
             "numFound": 10,
             "start": 0,
-            "docs": [{"id": "doc1", "title": ["Test Doc"], "category": "programming"}]
+            "docs": [{"id": "doc1", "title": ["Test Doc"], "category": "programming"}],
         },
         "facet_counts": {
             "facet_fields": {
                 "category": ["programming", 3, "technology", 3, "database", 1],
-                "author": ["John Smith", 2, "Jane Doe", 1]
+                "author": ["John Smith", 2, "Jane Doe", 1],
             }
-        }
+        },
     }
-    mock_context.request_context.lifespan_context.solr_client.search.return_value = faceted_result
+    mock_context.request_context.lifespan_context.solr_client.search.return_value = (
+        faceted_result
+    )
 
     # Call the tool with facet_fields
     result = await search(
@@ -223,7 +232,7 @@ async def test_search_tool_with_facets(mock_context):
         rows=10,
         start=0,
         facet_fields=["category", "author"],
-        ctx=mock_context
+        ctx=mock_context,
     )
 
     # Verify facet_counts are in the result
@@ -246,22 +255,37 @@ async def test_solr_client_search_with_facets():
     """Test SolrClient search method with facet_fields"""
     mock_response = AsyncMock()
     mock_response.raise_for_status = AsyncMock()
-    mock_response.json = AsyncMock(return_value={
-        "responseHeader": {"status": 0},
-        "response": {
-            "numFound": 10,
-            "start": 0,
-            "docs": [
-                {"id": "doc1", "title": "First Document", "category": "technology"},
-                {"id": "doc2", "title": "Second Document", "category": "programming"}
-            ]
-        },
-        "facet_counts": {
-            "facet_fields": {
-                "category": ["programming", 3, "technology", 3, "database", 1, "devops", 1]
-            }
+    mock_response.json = AsyncMock(
+        return_value={
+            "responseHeader": {"status": 0},
+            "response": {
+                "numFound": 10,
+                "start": 0,
+                "docs": [
+                    {"id": "doc1", "title": "First Document", "category": "technology"},
+                    {
+                        "id": "doc2",
+                        "title": "Second Document",
+                        "category": "programming",
+                    },
+                ],
+            },
+            "facet_counts": {
+                "facet_fields": {
+                    "category": [
+                        "programming",
+                        3,
+                        "technology",
+                        3,
+                        "database",
+                        1,
+                        "devops",
+                        1,
+                    ]
+                }
+            },
         }
-    })
+    )
 
     async def get(*args, **kwargs):
         return mock_response
@@ -271,13 +295,9 @@ async def test_solr_client_search_with_facets():
 
     with patch("httpx.AsyncClient", return_value=mock_client):
         client = SolrClient(
-            base_url="http://example.com/solr",
-            collection="test_collection"
+            base_url="http://example.com/solr", collection="test_collection"
         )
-        result = await client.search(
-            query="*:*",
-            facet_fields=["category"]
-        )
+        result = await client.search(query="*:*", facet_fields=["category"])
 
         # Verify response structure
         assert result["response"]["numFound"] == 10
@@ -306,22 +326,34 @@ async def test_search_tool_with_highlighting(mock_context):
             "numFound": 2,
             "start": 0,
             "docs": [
-                {"id": "doc1", "title": ["Machine Learning Basics"], "content": ["This is an introduction to machine learning concepts"]},
-                {"id": "doc2", "title": ["Deep Learning"], "content": ["Deep learning is a subset of machine learning"]}
-            ]
+                {
+                    "id": "doc1",
+                    "title": ["Machine Learning Basics"],
+                    "content": ["This is an introduction to machine learning concepts"],
+                },
+                {
+                    "id": "doc2",
+                    "title": ["Deep Learning"],
+                    "content": ["Deep learning is a subset of machine learning"],
+                },
+            ],
         },
         "highlighting": {
             "doc1": {
                 "title": ["<em>Machine</em> Learning Basics"],
-                "content": ["This is an introduction to <em>machine</em> learning concepts"]
+                "content": [
+                    "This is an introduction to <em>machine</em> learning concepts"
+                ],
             },
             "doc2": {
                 "title": ["Deep Learning"],
-                "content": ["Deep learning is a subset of <em>machine</em> learning"]
-            }
-        }
+                "content": ["Deep learning is a subset of <em>machine</em> learning"],
+            },
+        },
     }
-    mock_context.request_context.lifespan_context.solr_client.search.return_value = highlighted_result
+    mock_context.request_context.lifespan_context.solr_client.search.return_value = (
+        highlighted_result
+    )
 
     # Call the tool with highlight_fields
     result = await search(
@@ -332,7 +364,7 @@ async def test_search_tool_with_highlighting(mock_context):
         start=0,
         facet_fields=None,
         highlight_fields=["title", "content"],
-        ctx=mock_context
+        ctx=mock_context,
     )
 
     # Verify highlighting is in the result
@@ -352,31 +384,91 @@ async def test_search_tool_with_highlighting(mock_context):
 
 
 @pytest.mark.asyncio
+async def test_search_tool_with_edismax(mock_context):
+    """Test the search tool uses edismax for text queries"""
+    # Setup mock to capture the search call
+    edismax_result = {
+        "responseHeader": {"status": 0},
+        "response": {
+            "numFound": 1,
+            "start": 0,
+            "docs": [
+                {
+                    "id": "doc2",
+                    "title": ["Machine Learning Basics"],
+                    "content": ["Introduction to ML"],
+                }
+            ],
+        },
+    }
+    mock_context.request_context.lifespan_context.solr_client.search.return_value = (
+        edismax_result
+    )
+
+    # Call the tool with a simple text query (no field specifier)
+    result = await search(
+        query="machine learning",
+        filter_query=None,
+        sort=None,
+        rows=10,
+        start=0,
+        facet_fields=None,
+        highlight_fields=None,
+        ctx=mock_context,
+    )
+
+    # Verify the result
+    assert "response" in result
+    assert result["response"]["numFound"] == 1
+    assert result["response"]["docs"][0]["id"] == "doc2"
+
+    # Verify solr_client.search was called with the query
+    mock_context.request_context.lifespan_context.solr_client.search.assert_called_once()
+    call_args = (
+        mock_context.request_context.lifespan_context.solr_client.search.call_args
+    )
+    assert call_args[1]["query"] == "machine learning"
+
+    # Verify ctx.info was called
+    assert mock_context.info.called
+
+
+@pytest.mark.asyncio
 async def test_solr_client_search_with_highlighting():
     """Test SolrClient search method with highlight_fields"""
     mock_response = AsyncMock()
     mock_response.raise_for_status = AsyncMock()
-    mock_response.json = AsyncMock(return_value={
-        "responseHeader": {"status": 0},
-        "response": {
-            "numFound": 2,
-            "start": 0,
-            "docs": [
-                {"id": "doc1", "title": "Apache Solr Tutorial", "content": "Learn about Apache Solr search engine"},
-                {"id": "doc2", "title": "Solr Configuration", "content": "How to configure your Solr instance"}
-            ]
-        },
-        "highlighting": {
-            "doc1": {
-                "title": ["Apache <em>Solr</em> Tutorial"],
-                "content": ["Learn about Apache <em>Solr</em> search engine"]
+    mock_response.json = AsyncMock(
+        return_value={
+            "responseHeader": {"status": 0},
+            "response": {
+                "numFound": 2,
+                "start": 0,
+                "docs": [
+                    {
+                        "id": "doc1",
+                        "title": "Apache Solr Tutorial",
+                        "content": "Learn about Apache Solr search engine",
+                    },
+                    {
+                        "id": "doc2",
+                        "title": "Solr Configuration",
+                        "content": "How to configure your Solr instance",
+                    },
+                ],
             },
-            "doc2": {
-                "title": ["<em>Solr</em> Configuration"],
-                "content": ["How to configure your <em>Solr</em> instance"]
-            }
+            "highlighting": {
+                "doc1": {
+                    "title": ["Apache <em>Solr</em> Tutorial"],
+                    "content": ["Learn about Apache <em>Solr</em> search engine"],
+                },
+                "doc2": {
+                    "title": ["<em>Solr</em> Configuration"],
+                    "content": ["How to configure your <em>Solr</em> instance"],
+                },
+            },
         }
-    })
+    )
 
     async def get(*args, **kwargs):
         return mock_response
@@ -386,12 +478,10 @@ async def test_solr_client_search_with_highlighting():
 
     with patch("httpx.AsyncClient", return_value=mock_client):
         client = SolrClient(
-            base_url="http://example.com/solr",
-            collection="test_collection"
+            base_url="http://example.com/solr", collection="test_collection"
         )
         result = await client.search(
-            query="Solr",
-            highlight_fields=["title", "content"]
+            query="Solr", highlight_fields=["title", "content"]
         )
 
         # Verify response structure

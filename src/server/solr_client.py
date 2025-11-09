@@ -15,29 +15,36 @@ import httpx
 # Logger für diese Datei konfigurieren
 logger = logging.getLogger("solr-client")
 
+
 @dataclass
 class SolrClient:
     """Client für die Kommunikation mit Apache Solr.
-    
+
     Diese Klasse kapselt alle Operationen, die mit dem Solr-Server durchgeführt werden,
     einschließlich Suche und Dokumentenabruf.
-    
+
     Attributes:
         base_url (str): Basis-URL des Solr-Servers (z.B. "http://localhost:8983/solr")
         collection (str): Name der Solr-Kollektion für Suchabfragen
         username (Optional[str]): Benutzername für die Solr-Authentifizierung
         password (Optional[str]): Passwort für die Solr-Authentifizierung
     """
-    
+
     base_url: str
     collection: str
     username: Optional[str] = None
     password: Optional[str] = None
-    
-    async def search(self, query: str = "*:*", filter_query: Optional[str] = None,
-                    sort: Optional[str] = None, rows: int = 10,
-                    start: int = 0, facet_fields: Optional[List[str]] = None,
-                    highlight_fields: Optional[List[str]] = None) -> Dict[str, Any]:
+
+    async def search(
+        self,
+        query: str = "*:*",
+        filter_query: Optional[str] = None,
+        sort: Optional[str] = None,
+        rows: int = 10,
+        start: int = 0,
+        facet_fields: Optional[List[str]] = None,
+        highlight_fields: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
         """
         Führt eine Suchanfrage an Solr aus.
 
@@ -59,6 +66,15 @@ class SolrClient:
             "rows": rows,
             "start": start,
         }
+
+        # Use edismax query parser for better multi-field search
+        # Only for non-field-specific queries (no colons in query)
+        if query != "*:*" and ":" not in query:
+            params["defType"] = "edismax"
+            # Query fields with boost factors: title^2 means title is 2x more important
+            params["qf"] = "title^2 content^1.5 author category"
+            # Minimum should match - at least 75% of terms should match
+            params["mm"] = "75%"
 
         # Füge optionale Parameter hinzu, wenn sie vorhanden sind
         if filter_query:
@@ -83,11 +99,13 @@ class SolrClient:
         auth = None
         if self.username and self.password:
             auth = (self.username, self.password)
-            
+
         url = f"{self.base_url}/{self.collection}/select"
-        
+
         try:
             logger.info(f"Sende Solr-Suchanfrage an {url} mit Query: {query}")
+            if params.get("defType") == "edismax":
+                logger.info(f"Verwende edismax mit qf: {params['qf']}")
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, params=params, auth=auth)
                 if inspect.iscoroutinefunction(response.raise_for_status):
@@ -105,15 +123,17 @@ class SolrClient:
             logger.error(f"Fehler bei der Solr-Suche: {e}")
             logger.error(traceback.format_exc())
             return {"error": f"Fehler bei der Suche: {str(e)}"}
-    
-    async def get_document(self, doc_id: str, fields: Optional[List[str]] = None) -> Dict[str, Any]:
+
+    async def get_document(
+        self, doc_id: str, fields: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """
         Ruft ein spezifisches Dokument anhand seiner ID ab.
-        
+
         Args:
             doc_id (str): Die ID des abzurufenden Dokuments
             fields (Optional[List[str]]): Optionale Liste von Feldern, die zurückgegeben werden sollen
-            
+
         Returns:
             Dict[str, Any]: Das abgerufene Dokument oder eine Fehlermeldung
         """
@@ -121,16 +141,16 @@ class SolrClient:
             "q": f"id:{doc_id}",
             "wt": "json",
         }
-        
+
         if fields:
             params["fl"] = ",".join(fields)
-            
+
         auth = None
         if self.username and self.password:
             auth = (self.username, self.password)
-            
+
         url = f"{self.base_url}/{self.collection}/select"
-        
+
         try:
             logger.info(f"Rufe Dokument mit ID {doc_id} von {url} ab")
             async with httpx.AsyncClient() as client:
