@@ -9,6 +9,8 @@ This is an MCP (Model Context Protocol) Server for Apache Solr Document Search t
 - Streamable HTTP transport (native support)
 - Tool annotations for enhanced client integration
 - Context-based state management
+- **edismax Multi-Field Search** (v1.5.0) - Automatic search across title, content, author, category
+- **OAuth 2.1 with Auto-Refresh** (v1.5.0) - Server-side token management, no manual tokens needed
 
 ## Essential Commands
 
@@ -79,6 +81,31 @@ The project uses a unified MCP server architecture with native transport support
 
 **Entry Point** (`src/main.py`): CLI argument parsing that routes to appropriate server mode, with `run_server.py` as convenience wrapper.
 
+**OAuth Module** (`src/server/oauth.py`): OAuth 2.1 authentication with Keycloak, featuring:
+- Token validation via JWKS (fast, cached) and introspection (authoritative)
+- Server-side token retrieval with Password Grant flow
+- Automatic token refresh background task (every 4 minutes)
+- Fine-grained scope checking (solr:search, solr:read, solr:write, solr:admin)
+
+### v1.5.0 Features
+
+**edismax Multi-Field Search** (`SolrClient.search()`):
+- Automatically searches across: title^2 (boosted), content^1.5, author, category
+- Minimum match: 75% of search terms must match
+- Fixes issue where simple queries like "machine learning" found 0 documents
+- Field-specific queries (with `:`) still work without edismax
+
+**OAuth Auto-Refresh** (`.env` configuration):
+```bash
+OAUTH_AUTO_REFRESH=true
+OAUTH_USERNAME=testuser
+OAUTH_PASSWORD=testpassword
+```
+- Server retrieves OAuth token on startup
+- Background task refreshes every 4 minutes (token expires in 5 minutes)
+- MCP tools automatically use server token when no manual token provided
+- No manual token handling required in Claude Desktop
+
 ### MCP 1.21.0 Modern Patterns
 
 - **Lifespan Context**: Uses `@asynccontextmanager` pattern with `ctx.request_context.lifespan_context`
@@ -89,9 +116,10 @@ The project uses a unified MCP server architecture with native transport support
 ### Resource and Tool Patterns
 
 **MCP Resources**: `solr://search/{query}` for simple search interface
-**MCP Tools**: 
-- `search`: Advanced search with filtering, sorting, pagination
+**MCP Tools**:
+- `search`: Advanced search with filtering, sorting, pagination, faceting, highlighting, and edismax multi-field search
 - `get_document`: Document retrieval by ID with field selection
+- Both tools support optional `access_token` parameter for OAuth (auto-filled when OAUTH_AUTO_REFRESH=true)
 
 Both implement identical business logic but different protocol interfaces.
 

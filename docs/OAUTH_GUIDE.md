@@ -111,6 +111,12 @@ You → Claude Desktop → Our MCP Server (localhost) → Solr
 ```bash
 # .env
 ENABLE_OAUTH=false  # Default for local dev
+
+# Optional: Enable OAuth with auto-refresh (v1.5.0+)
+# ENABLE_OAUTH=true
+# OAUTH_AUTO_REFRESH=true
+# OAUTH_USERNAME=testuser
+# OAUTH_PASSWORD=testpassword
 ```
 
 ---
@@ -522,6 +528,156 @@ JWKS_ENDPOINT=${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/c
 
 ---
 
+## OAuth Auto-Refresh (v1.5.0)
+
+### Overview
+
+**New in v1.5.0:** The MCP server can now automatically retrieve and refresh OAuth tokens, eliminating the need for manual token handling.
+
+### How It Works
+
+**Server-Side Token Management:**
+1. Server retrieves OAuth token on startup (Password Grant flow)
+2. Background task refreshes token every 4 minutes
+3. MCP tools automatically use server token when no manual token provided
+4. Token never expires during session
+
+### Configuration
+
+**In `.env` file:**
+```bash
+# Enable OAuth
+ENABLE_OAUTH=true
+OAUTH_PROVIDER=keycloak
+
+# Keycloak Configuration
+KEYCLOAK_URL=http://localhost:8080
+KEYCLOAK_REALM=solr-mcp
+KEYCLOAK_CLIENT_ID=solr-search-server
+KEYCLOAK_CLIENT_SECRET=your-client-secret
+
+# Required scopes
+OAUTH_SCOPES=solr:search,solr:read
+
+# NEW in v1.5.0: Auto-Refresh Configuration
+OAUTH_AUTO_REFRESH=true
+OAUTH_USERNAME=testuser
+OAUTH_PASSWORD=testpassword
+```
+
+### Usage Modes
+
+**Mode 1: Manual Token (v1.4.0 - Original)**
+```python
+# User provides token manually
+result = await session.call_tool(
+    "search",
+    arguments={
+        "query": "machine learning",
+        "access_token": "eyJhbGciOiJSUzI1NiIs..."
+    }
+)
+```
+
+**Mode 2: Auto-Refresh (v1.5.0 - NEW)**
+```python
+# No token needed! Server uses its own token
+result = await session.call_tool(
+    "search",
+    arguments={
+        "query": "machine learning"
+        # access_token is automatically provided by server
+    }
+)
+```
+
+### When to Use Auto-Refresh
+
+**✅ Perfect For:**
+- Single-user scenarios
+- Local development
+- Testing environments
+- Demos and prototypes
+
+**❌ Not Suitable For:**
+- Multi-user production with different permissions
+- User-specific audit trails
+- Fine-grained access control per user
+
+**Note:** For multi-user production, wait for MCP Client OAuth support in Claude Desktop.
+
+### Implementation Details
+
+**Server Startup:**
+```python
+# In lifespan manager (src/server/mcp_server.py)
+if oauth_config.auto_refresh:
+    token_data = await token_validator.retrieve_token(
+        oauth_config.username,
+        oauth_config.password
+    )
+    server_access_token = token_data["access_token"]
+
+    # Start background refresh task
+    token_refresh_task = asyncio.create_task(
+        refresh_token_periodically(...)
+    )
+```
+
+**Background Refresh:**
+- Interval: 240 seconds (4 minutes)
+- Token validity: 300 seconds (5 minutes)
+- Safety margin: 1 minute
+
+**Tool Validation:**
+```python
+# In validate_oauth_token() function
+if not token:
+    if oauth_config.auto_refresh and server_access_token:
+        token = server_access_token  # Use server token
+    else:
+        raise TokenMissingError(...)
+```
+
+### Testing
+
+**Test Auto-Refresh:**
+```bash
+# 1. Configure .env
+OAUTH_AUTO_REFRESH=true
+OAUTH_USERNAME=testuser
+OAUTH_PASSWORD=testpassword
+
+# 2. Start server
+mcp dev src/server/mcp_server.py
+
+# 3. Check logs
+tail -f ~/.config/Claude/logs/mcp-server-solr-search.log
+```
+
+**Expected Logs:**
+```
+INFO - OAuth auto-refresh enabled for user: testuser
+INFO - Retrieving initial OAuth token...
+INFO - ✅ Initial OAuth token retrieved successfully (expires in 300 seconds)
+INFO - Token refresh background task started
+INFO - Token refresh task started (interval: 240 seconds)
+```
+
+**After 4 minutes:**
+```
+INFO - Refreshing OAuth token...
+INFO - ✅ OAuth token refreshed successfully (expires in 300 seconds)
+```
+
+### Documentation
+
+- **Complete Guide:** `OAUTH_AUTO_REFRESH_TEST.md`
+- **Manual Testing:** `OAUTH_TESTING.md`
+- **Helper Script:** `get-oauth-token.sh`
+
+---
+
 ## Next Steps
 
 1. ✅ Read this guide
@@ -533,8 +689,8 @@ JWKS_ENDPOINT=${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/c
 
 ---
 
-**Document Version:** 1.0
-**Date:** November 8, 2025
+**Document Version:** 1.1 (Updated for v1.5.0 Auto-Refresh)
+**Date:** November 9, 2025
 **MCP Spec:** 2025-06-18
 **Author:** Claude Code
 
