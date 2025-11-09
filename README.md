@@ -420,9 +420,9 @@ If you can access the MCP Inspector but not connect with other clients:
    MCP_DEBUG=1 python run_server.py --mode mcp
    ```
 
-## Integration in Tool-Launcher oder Service-Definitionen
+## Integration in Tool Launchers or Service Definitions
 
-Um den MCP-Server in externe Tools (z.B. Claude Desktop, VSCode Dev Containers, eigene Tool-Runner) einzubinden, verwende folgende Konfiguration:
+To integrate the MCP server into external tools (e.g., Claude Desktop, VSCode Dev Containers, custom tool runners), use the following configuration:
 
 ```json
 "solr-search": {
@@ -440,11 +440,11 @@ Um den MCP-Server in externe Tools (z.B. Claude Desktop, VSCode Dev Containers, 
 }
 ```
 
-**Wichtig:**
-- Verwende **absolute Pfade** für sowohl das `uv` Kommando als auch die Serverdatei
-- Passe die Pfade an dein System an (`/home/mjochum/...` → dein Home-Verzeichnis)
-- Das `--project` Argument stellt sicher, dass die richtigen Dependencies geladen werden
-- Das Kommando sorgt dafür, dass alle Abhängigkeiten (inkl. MCP 1.21.0) im Kontext verfügbar sind
+**Important:**
+- Use **absolute paths** for both the `uv` command and the server file
+- Adjust paths to your system (`/home/mjochum/...` → your home directory)
+- The `--project` argument ensures the correct dependencies are loaded
+- The command ensures all dependencies (including MCP 1.21.0) are available in the context
 
 ## Development
 
