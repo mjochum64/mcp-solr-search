@@ -10,6 +10,7 @@ import json
 import sys
 import logging
 import traceback
+import asyncio
 from typing import Dict, List, Optional, Any, AsyncIterator
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -59,6 +60,9 @@ SOLR_COLLECTION = os.getenv("SOLR_COLLECTION", "documents")
 SOLR_USERNAME = os.getenv("SOLR_USERNAME", "")
 SOLR_PASSWORD = os.getenv("SOLR_PASSWORD", "")
 
+# Global app context for token refresh background task
+app_context: Optional["AppContext"] = None
+
 
 @dataclass
 class AppContext:
@@ -67,9 +71,77 @@ class AppContext:
     solr_client: SolrClient
     oauth_config: OAuth2Config
     token_validator: Optional[TokenValidator] = None
+    # Server-side OAuth token management
+    server_access_token: Optional[str] = None
+    server_refresh_token: Optional[str] = None
+    token_refresh_task: Optional[Any] = None  # asyncio.Task
 
 
 # Lifespan Context Manager für proper state management
+
+
+async def refresh_token_periodically(
+    token_validator: TokenValidator,
+    initial_refresh_token: str,
+    oauth_config: OAuth2Config,
+) -> None:
+    """
+    Background task to periodically refresh OAuth access token.
+
+    Refreshes the token every 4 minutes (token expires in 5 minutes).
+
+    Args:
+        token_validator: Token validator instance
+        initial_refresh_token: Initial refresh token
+        oauth_config: OAuth configuration
+    """
+    refresh_token = initial_refresh_token
+    refresh_interval = 240  # 4 minutes in seconds
+
+    logger.info(f"Token refresh task started (interval: {refresh_interval} seconds)")
+
+    try:
+        while True:
+            # Wait for refresh interval
+            await asyncio.sleep(refresh_interval)
+
+            try:
+                logger.info("Refreshing OAuth token...")
+                token_data = await token_validator.refresh_token(refresh_token)
+
+                # Update global app context (will be done via context)
+                # For now, we'll need to store this in app_context
+                new_access_token = token_data.get("access_token")
+                new_refresh_token = token_data.get("refresh_token")
+
+                if new_refresh_token:
+                    refresh_token = new_refresh_token
+
+                logger.info(
+                    f"✅ OAuth token refreshed successfully "
+                    f"(expires in {token_data.get('expires_in')} seconds)"
+                )
+
+                # Update app_context (we need to access it from here)
+                # This will be handled by storing in a module-level variable
+                global app_context
+                if app_context:
+                    app_context.server_access_token = new_access_token
+                    if new_refresh_token:
+                        app_context.server_refresh_token = new_refresh_token
+
+            except asyncio.CancelledError:
+                logger.info("Token refresh task cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"Failed to refresh OAuth token: {e}")
+                logger.warning("Will retry at next interval")
+
+    except asyncio.CancelledError:
+        logger.info("Token refresh task stopped")
+        raise
+
+
 @asynccontextmanager
 async def lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     """Initialize and cleanup resources for the MCP server with type-safe context."""
@@ -92,11 +164,17 @@ async def lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
             f"(realm: {oauth_config.realm})"
         )
         logger.info(f"Required scopes: {oauth_config.required_scopes}")
+        if oauth_config.auto_refresh:
+            logger.info(f"OAuth auto-refresh enabled for user: {oauth_config.username}")
     else:
         logger.info("OAuth 2.1 is disabled")
 
     # Initialize token validator if OAuth is enabled
     token_validator = None
+    server_access_token = None
+    server_refresh_token = None
+    token_refresh_task = None
+
     if oauth_config.enabled:
         token_validator = TokenValidator(oauth_config)
         async with token_validator:
@@ -108,18 +186,71 @@ async def lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
                 logger.warning(f"Failed to fetch JWKS: {e}")
                 logger.warning("OAuth validation may fail until Keycloak is accessible")
 
+            # Retrieve initial token if auto-refresh is enabled
+            if oauth_config.auto_refresh:
+                if not oauth_config.username or not oauth_config.password:
+                    logger.error(
+                        "OAuth auto-refresh enabled but OAUTH_USERNAME or OAUTH_PASSWORD not set in .env"
+                    )
+                else:
+                    try:
+                        logger.info(
+                            "Retrieving initial OAuth token for server-side authentication..."
+                        )
+                        token_data = await token_validator.retrieve_token(
+                            oauth_config.username, oauth_config.password
+                        )
+                        server_access_token = token_data.get("access_token")
+                        server_refresh_token = token_data.get("refresh_token")
+                        logger.info(
+                            f"✅ Initial OAuth token retrieved successfully "
+                            f"(expires in {token_data.get('expires_in')} seconds)"
+                        )
+
+                        # Start background token refresh task
+                        token_refresh_task = asyncio.create_task(
+                            refresh_token_periodically(
+                                token_validator, server_refresh_token, oauth_config
+                            )
+                        )
+                        logger.info("Token refresh background task started")
+
+                    except Exception as e:
+                        logger.error(f"Failed to retrieve initial OAuth token: {e}")
+                        logger.warning(
+                            "Server will require manual access_token in tool calls"
+                        )
+
     # Test Solr connection
     await test_solr_connection(solr_client)
 
+    # Create app context and store globally for token refresh task
+    global app_context
+    app_context = AppContext(
+        solr_client=solr_client,
+        oauth_config=oauth_config,
+        token_validator=token_validator,
+        server_access_token=server_access_token,
+        server_refresh_token=server_refresh_token,
+        token_refresh_task=token_refresh_task,
+    )
+
     try:
-        yield AppContext(
-            solr_client=solr_client,
-            oauth_config=oauth_config,
-            token_validator=token_validator,
-        )
+        yield app_context
     finally:
         # Cleanup on shutdown
         logger.info("Shutting down MCP server")
+
+        # Cancel token refresh task
+        if token_refresh_task and not token_refresh_task.done():
+            logger.info("Cancelling token refresh task...")
+            token_refresh_task.cancel()
+            try:
+                await token_refresh_task
+            except asyncio.CancelledError:
+                logger.info("Token refresh task cancelled")
+
+        # Close HTTP client
         if token_validator and token_validator._http_client:
             await token_validator._http_client.aclose()
 
@@ -133,6 +264,9 @@ async def validate_oauth_token(
 ) -> Optional[Dict[str, Any]]:
     """
     Validate OAuth token if OAuth is enabled.
+
+    If no token is provided and server-side auto-refresh is enabled,
+    uses the server's access token instead.
 
     Args:
         ctx: MCP context with access to lifespan context
@@ -152,15 +286,17 @@ async def validate_oauth_token(
     if not app_context.oauth_config.enabled:
         return None
 
-    # Check if token is provided
+    # Use server token if no token provided and auto-refresh is enabled
     if not token:
-        # For HTTP transport, token should be in Authorization header
-        # For stdio transport (Claude Desktop), OAuth might not apply
-        # For now, we'll raise an error if token is missing and OAuth is enabled
-        raise TokenMissingError(
-            "OAuth is enabled but no access token provided. "
-            "Include token in Authorization header: Bearer <token>"
-        )
+        if app_context.oauth_config.auto_refresh and app_context.server_access_token:
+            token = app_context.server_access_token
+            await ctx.info("Using server-side OAuth token")
+        else:
+            # No token available
+            raise TokenMissingError(
+                "OAuth is enabled but no access token provided. "
+                "Either provide access_token parameter or enable OAUTH_AUTO_REFRESH in .env"
+            )
 
     # Validate token
     try:
@@ -178,7 +314,10 @@ async def validate_oauth_token(
 
     # Log successful authentication
     username = token_data.get("preferred_username", "unknown")
-    await ctx.info(f"Authenticated user: {username}")
+    if app_context.oauth_config.auto_refresh and not token:
+        await ctx.info(f"Authenticated as server user: {username}")
+    else:
+        await ctx.info(f"Authenticated user: {username}")
 
     return token_data
 
@@ -268,13 +407,22 @@ async def search(
             return {"error": f"Authentication failed: {str(e)}"}
 
         facet_info = f" mit Facets: {facet_fields}" if facet_fields else ""
-        highlight_info = f" mit Highlighting: {highlight_fields}" if highlight_fields else ""
-        await ctx.info(f"Verarbeite search-Tool-Anfrage: {query}{facet_info}{highlight_info}")
+        highlight_info = (
+            f" mit Highlighting: {highlight_fields}" if highlight_fields else ""
+        )
+        await ctx.info(
+            f"Verarbeite search-Tool-Anfrage: {query}{facet_info}{highlight_info}"
+        )
 
         solr_client = ctx.request_context.lifespan_context.solr_client
         results = await solr_client.search(
-            query=query, filter_query=filter_query, sort=sort, rows=rows, start=start,
-            facet_fields=facet_fields, highlight_fields=highlight_fields
+            query=query,
+            filter_query=filter_query,
+            sort=sort,
+            rows=rows,
+            start=start,
+            facet_fields=facet_fields,
+            highlight_fields=highlight_fields,
         )
 
         return results

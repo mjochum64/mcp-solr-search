@@ -31,6 +31,11 @@ class OAuth2Config:
     required_scopes: List[str]
     token_validation_endpoint: str
     jwks_endpoint: str
+    # Server-side token retrieval (optional)
+    auto_refresh: bool = False
+    username: str = ""
+    password: str = ""
+    token_endpoint: str = ""
 
     @classmethod
     def from_env(cls) -> "OAuth2Config":
@@ -46,13 +51,17 @@ class OAuth2Config:
         scopes_str = os.getenv("OAUTH_SCOPES", "solr:search,solr:read")
         required_scopes = [s.strip() for s in scopes_str.split(",") if s.strip()]
 
+        # Server-side token retrieval
+        auto_refresh = os.getenv("OAUTH_AUTO_REFRESH", "false").lower() == "true"
+        username = os.getenv("OAUTH_USERNAME", "")
+        password = os.getenv("OAUTH_PASSWORD", "")
+
         # Build endpoints
+        token_endpoint = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/token"
         token_validation_endpoint = (
             f"{keycloak_url}/realms/{realm}/protocol/openid-connect/token/introspect"
         )
-        jwks_endpoint = (
-            f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
-        )
+        jwks_endpoint = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
 
         return cls(
             enabled=enabled,
@@ -64,6 +73,10 @@ class OAuth2Config:
             required_scopes=required_scopes,
             token_validation_endpoint=token_validation_endpoint,
             jwks_endpoint=jwks_endpoint,
+            auto_refresh=auto_refresh,
+            username=username,
+            password=password,
+            token_endpoint=token_endpoint,
         )
 
 
@@ -263,6 +276,114 @@ class TokenValidator:
             return await self.validate_token_introspection(token)
         else:
             return await self.validate_token_local(token)
+
+    async def retrieve_token(self, username: str, password: str) -> Dict[str, Any]:
+        """
+        Retrieve OAuth access token using Resource Owner Password Credentials Grant.
+
+        This method allows the MCP server to obtain a token on behalf of a user
+        for server-side token management.
+
+        Args:
+            username: Username for authentication
+            password: Password for authentication
+
+        Returns:
+            Dict containing access_token, token_type, expires_in, refresh_token, scope
+
+        Raises:
+            Exception: If token retrieval fails
+        """
+        try:
+            if not self._http_client:
+                self._http_client = httpx.AsyncClient()
+
+            # Prepare request
+            data = {
+                "client_id": self.config.client_id,
+                "client_secret": self.config.client_secret,
+                "username": username,
+                "password": password,
+                "grant_type": "password",
+                "scope": " ".join(self.config.required_scopes),
+            }
+
+            logger.info(
+                f"Retrieving OAuth token from {self.config.token_endpoint} for user '{username}'"
+            )
+
+            response = await self._http_client.post(
+                self.config.token_endpoint,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            response.raise_for_status()
+
+            token_data = response.json()
+
+            logger.info(
+                f"OAuth token retrieved successfully, expires in {token_data.get('expires_in')} seconds"
+            )
+            return token_data
+
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"Failed to retrieve OAuth token (HTTP {e.response.status_code}): {e.response.text}"
+            )
+            raise Exception(f"OAuth token retrieval failed: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Failed to retrieve OAuth token: {e}")
+            raise
+
+    async def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
+        """
+        Refresh OAuth access token using refresh token.
+
+        Args:
+            refresh_token: Refresh token from previous token retrieval
+
+        Returns:
+            Dict containing new access_token, token_type, expires_in, refresh_token, scope
+
+        Raises:
+            Exception: If token refresh fails
+        """
+        try:
+            if not self._http_client:
+                self._http_client = httpx.AsyncClient()
+
+            # Prepare request
+            data = {
+                "client_id": self.config.client_id,
+                "client_secret": self.config.client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            }
+
+            logger.debug(f"Refreshing OAuth token at {self.config.token_endpoint}")
+
+            response = await self._http_client.post(
+                self.config.token_endpoint,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            response.raise_for_status()
+
+            token_data = response.json()
+
+            logger.info(
+                f"OAuth token refreshed successfully, expires in {token_data.get('expires_in')} seconds"
+            )
+            return token_data
+
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"Failed to refresh OAuth token (HTTP {e.response.status_code}): {e.response.text}"
+            )
+            raise Exception(f"OAuth token refresh failed: {e.response.text}")
+        except Exception as e:
+            logger.error(f"Failed to refresh OAuth token: {e}")
+            raise
 
     def check_scopes(self, token_data: Dict[str, Any]) -> bool:
         """
