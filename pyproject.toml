@@ -26,6 +26,7 @@ dependencies = [
     "mcp[cli]>=1.21.0",
     "pydantic>=2.0.0",
     "pyjwt>=2.6.0",
+    "python-jose[cryptography]>=3.3.0",
     "passlib>=1.7.4",
 ]
 

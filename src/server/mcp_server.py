@@ -31,6 +31,14 @@ if project_dir not in sys.path:
 # Importiere lokale Module
 from src.server.models import SearchParams, GetDocumentParams
 from src.server.solr_client import SolrClient
+from src.server.oauth import (
+    OAuth2Config,
+    TokenValidator,
+    OAuthError,
+    TokenMissingError,
+    TokenInvalidError,
+    InsufficientScopesError,
+)
 
 # Logger für diese Datei konfigurieren
 logging.basicConfig(
@@ -57,6 +65,8 @@ class AppContext:
     """Application context with typed dependencies."""
 
     solr_client: SolrClient
+    oauth_config: OAuth2Config
+    token_validator: Optional[TokenValidator] = None
 
 
 # Lifespan Context Manager für proper state management
@@ -74,18 +84,103 @@ async def lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     )
     logger.info("Solr client initialized")
 
-    # Test connection
+    # Initialize OAuth configuration
+    oauth_config = OAuth2Config.from_env()
+    if oauth_config.enabled:
+        logger.info(
+            f"OAuth 2.1 enabled with provider: {oauth_config.provider} "
+            f"(realm: {oauth_config.realm})"
+        )
+        logger.info(f"Required scopes: {oauth_config.required_scopes}")
+    else:
+        logger.info("OAuth 2.1 is disabled")
+
+    # Initialize token validator if OAuth is enabled
+    token_validator = None
+    if oauth_config.enabled:
+        token_validator = TokenValidator(oauth_config)
+        async with token_validator:
+            # Test JWKS fetch
+            try:
+                await token_validator._fetch_jwks()
+                logger.info("JWKS fetched successfully - OAuth is ready")
+            except Exception as e:
+                logger.warning(f"Failed to fetch JWKS: {e}")
+                logger.warning("OAuth validation may fail until Keycloak is accessible")
+
+    # Test Solr connection
     await test_solr_connection(solr_client)
 
     try:
-        yield AppContext(solr_client=solr_client)
+        yield AppContext(
+            solr_client=solr_client,
+            oauth_config=oauth_config,
+            token_validator=token_validator,
+        )
     finally:
         # Cleanup on shutdown
         logger.info("Shutting down MCP server")
+        if token_validator and token_validator._http_client:
+            await token_validator._http_client.aclose()
 
 
 # MCP-Server with modern lifespan management
 app = FastMCP(MCP_SERVER_NAME, lifespan=lifespan)
+
+
+async def validate_oauth_token(
+    ctx: Context, token: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Validate OAuth token if OAuth is enabled.
+
+    Args:
+        ctx: MCP context with access to lifespan context
+        token: Optional OAuth token (for HTTP transport)
+
+    Returns:
+        Dict with token claims if validation succeeds, None if OAuth is disabled
+
+    Raises:
+        TokenMissingError: If OAuth is enabled but token is missing
+        TokenInvalidError: If token validation fails
+        InsufficientScopesError: If token doesn't have required scopes
+    """
+    app_context = ctx.request_context.lifespan_context
+
+    # Skip validation if OAuth is disabled
+    if not app_context.oauth_config.enabled:
+        return None
+
+    # Check if token is provided
+    if not token:
+        # For HTTP transport, token should be in Authorization header
+        # For stdio transport (Claude Desktop), OAuth might not apply
+        # For now, we'll raise an error if token is missing and OAuth is enabled
+        raise TokenMissingError(
+            "OAuth is enabled but no access token provided. "
+            "Include token in Authorization header: Bearer <token>"
+        )
+
+    # Validate token
+    try:
+        token_data = await app_context.token_validator.validate_token(token)
+    except Exception as e:
+        logger.error(f"Token validation failed: {e}")
+        raise TokenInvalidError(f"Invalid access token: {str(e)}")
+
+    # Check scopes
+    if not app_context.token_validator.check_scopes(token_data):
+        required = app_context.oauth_config.required_scopes
+        raise InsufficientScopesError(
+            f"Token missing required scopes. Required: {required}"
+        )
+
+    # Log successful authentication
+    username = token_data.get("preferred_username", "unknown")
+    await ctx.info(f"Authenticated user: {username}")
+
+    return token_data
 
 
 @app.resource("solr://search/{query}")
@@ -96,6 +191,9 @@ async def search_solr(ctx: Context, query: str) -> str:
     Diese Ressource bietet eine einfache Schnittstelle für Solr-Suchen
     über den MCP-Protokoll-Ressourcenmechanismus.
 
+    Note: This resource does not support OAuth authentication. For OAuth-protected
+    access, use the 'search' tool instead.
+
     Args:
         ctx (Context): MCP context with access to lifespan context
         query (str): Die Suchanfrage
@@ -104,6 +202,14 @@ async def search_solr(ctx: Context, query: str) -> str:
         str: JSON-String mit Suchergebnissen
     """
     try:
+        # Check if OAuth is enabled - if so, recommend using the tool instead
+        app_context = ctx.request_context.lifespan_context
+        if app_context.oauth_config.enabled:
+            await ctx.warning(
+                "OAuth is enabled but this resource doesn't support authentication. "
+                "Please use the 'search' tool instead for OAuth-protected access."
+            )
+
         await ctx.info(f"Verarbeite Suchanfrage mit Query: {query}")
         solr_client = ctx.request_context.lifespan_context.solr_client
         results = await solr_client.search(query)
@@ -120,7 +226,7 @@ async def search_solr(ctx: Context, query: str) -> str:
     annotations={
         "title": "Search Solr Documents",
         "readOnlyHint": True,
-        "description": "Advanced search with filtering, sorting, pagination, faceting, and highlighting",
+        "description": "Advanced search with filtering, sorting, pagination, faceting, and highlighting (OAuth required if enabled)",
     }
 )
 async def search(
@@ -131,6 +237,7 @@ async def search(
     start: int = 0,
     facet_fields: Optional[List[str]] = None,
     highlight_fields: Optional[List[str]] = None,
+    access_token: Optional[str] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
     """
@@ -147,12 +254,19 @@ async def search(
         start (int): Offset for pagination (default: 0)
         facet_fields (Optional[List[str]]): Fields to facet on (e.g., ["category", "author"])
         highlight_fields (Optional[List[str]]): Fields to highlight search terms in (e.g., ["title", "content"])
+        access_token (Optional[str]): OAuth 2.1 access token (required if OAuth is enabled)
         ctx (Context): MCP context with access to lifespan context
 
     Returns:
         Dict[str, Any]: Suchergebnisse (inkl. facet_counts und highlighting wenn angegeben) oder Fehlermeldung
     """
     try:
+        # Validate OAuth token if enabled
+        try:
+            await validate_oauth_token(ctx, access_token)
+        except OAuthError as e:
+            return {"error": f"Authentication failed: {str(e)}"}
+
         facet_info = f" mit Facets: {facet_fields}" if facet_fields else ""
         highlight_info = f" mit Highlighting: {highlight_fields}" if highlight_fields else ""
         await ctx.info(f"Verarbeite search-Tool-Anfrage: {query}{facet_info}{highlight_info}")
@@ -174,11 +288,14 @@ async def search(
     annotations={
         "title": "Get Solr Document by ID",
         "readOnlyHint": True,
-        "description": "Retrieve a specific document by its ID with optional field selection",
+        "description": "Retrieve a specific document by its ID with optional field selection (OAuth required if enabled)",
     }
 )
 async def get_document(
-    id: str, fields: Optional[List[str]] = None, ctx: Context = None
+    id: str,
+    fields: Optional[List[str]] = None,
+    access_token: Optional[str] = None,
+    ctx: Context = None,
 ) -> Dict[str, Any]:
     """
     Tool zum Abrufen spezifischer Dokumente.
@@ -189,12 +306,19 @@ async def get_document(
     Args:
         id (str): Document ID to retrieve
         fields (Optional[List[str]]): List of fields to return (default: all fields)
+        access_token (Optional[str]): OAuth 2.1 access token (required if OAuth is enabled)
         ctx (Context): MCP context with access to lifespan context
 
     Returns:
         Dict[str, Any]: Das abgerufene Dokument oder Fehlermeldung
     """
     try:
+        # Validate OAuth token if enabled
+        try:
+            await validate_oauth_token(ctx, access_token)
+        except OAuthError as e:
+            return {"error": f"Authentication failed: {str(e)}"}
+
         await ctx.info(f"Verarbeite get_document-Tool-Anfrage für ID: {id}")
 
         solr_client = ctx.request_context.lifespan_context.solr_client
