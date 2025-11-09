@@ -2,8 +2,14 @@
 
 ## Current Status & Version History (Updated: 8. November 2025)
 
-**Current Version**: **1.3.0** ✅
+**Current Version**: **1.3.1** ✅
 **MCP Version**: **MCP 1.21.0** (2025-06-18 specification) ✅
+
+### Version 1.3.1 - MCP Spec Update (8. November 2025)
+- [x] Updated documentation to MCP Specification 2025-06-18 (latest)
+- [x] Updated CLAUDE.md, README.md, TASK.md to reference 2025-06-18
+- [x] Added comprehensive migration roadmap for future spec compliance
+- [x] Documented OAuth 2.1 requirement for production deployment
 
 ### Version 1.3.0 - Highlighting Support (8. November 2025)
 - [x] Implemented Highlighting to show where search terms appear

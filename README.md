@@ -16,7 +16,7 @@ This project implements a Model Context Protocol (MCP) server that provides docu
 
 ## Current Version
 
-**Version 1.3.0** - Added Highlighting support to show where search terms appear in results. See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
+**Version 1.3.1** - Updated to MCP Specification 2025-06-18 (latest). See [CHANGELOG.md](CHANGELOG.md) for details on all changes.
 
 ## What is MCP?
 
